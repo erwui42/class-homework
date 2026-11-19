@@ -717,7 +717,7 @@ function catalogTab(){
   return `
   <div class="card">
     <h2>Добавить задание в каталог</h2>
-    <p class="muted small">Можно прикрепить фото — ученики увидят его в задании</p>
+    <p class="muted small">Можно прикрепить файл — ученики увидят его в задании</p>
     <div class="row" style="flex-wrap:wrap">
       <input id="newTaskTitle" placeholder="Название задания" style="flex:2;min-width:220px">
       <input id="newTaskSubject" list="subjectList" placeholder="Предмет" style="flex:1;min-width:150px">
@@ -728,7 +728,7 @@ function catalogTab(){
     </div>
     <div class="row" style="align-items:center;flex-wrap:wrap">
       <label class="file-upload" id="newTaskPhotoLabel">
-        📷 Прикрепить фото (необязательно)
+        Прикрепить файл (необязательно)
         <input type="file" accept="image/*" id="newTaskPhoto">
       </label>
       <div style="flex:1"></div>
