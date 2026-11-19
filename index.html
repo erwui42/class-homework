@@ -803,22 +803,25 @@ function settingsTab(){
 /* ============================================================
    STUDENT SCREEN
    ============================================================ */
-function studentScreen(){
+function settingsTab(){
   return `
-  <header class="topbar">
-    <div class="brand"><span class="logo small">КР</span> ${esc(S.classDoc.name)}</div>
-    <div class="userbox">
-      ${themeBtn()}
-      <span class="badge-role">Ученик</span>
-      <b>${esc(S.profile.name)}</b>
-      <button class="btn ghost sm" data-action="logout">Выйти</button>
+  <div class="card">
+    <h2>Класс</h2>
+    <div class="list-row">
+      <div><b>Название</b></div>
+      <div style="display:flex;gap:8px;flex:1;max-width:360px">
+        <input id="classNameEdit" value="${esc(S.classDoc.name)}" style="flex:1">
+        <button class="btn sm" data-action="saveClassName">Сохранить</button>
+      </div>
     </div>
-  </header>
-  <main class="container">
-    <div class="stats" id="studentStats">${studentStatsHtml()}</div>
-    <h2 style="margin:22px 0 12px">Мои задания</h2>
-    <div id="studentCards">${studentAssignmentsHtml()}</div>
-  </main>`;
+    <div class="list-row"><div><b>Код-приглашение</b></div><div><b style="font-family:ui-monospace,monospace;letter-spacing:2px">${esc(S.classDoc.inviteCode)}</b></div></div>
+    <div class="list-row"><div><b>Учеников</b></div><div>${S.members.length}</div></div>
+    <div class="list-row"><div><b>Заданий в каталоге</b></div><div>${S.tasks.length}</div></div>
+    <div class="list-row"><div><b>Выдано карточек</b></div><div>${S.assignments.length}</div></div>
+    <div class="divider"></div>
+    <button class="btn ghost" data-action="copyCode">Скопировать код</button>
+    <button class="btn danger" data-action="leaveClass" style="margin-left:8px">Покинуть класс</button>
+  </div>`;
 }
 
 function studentStatsHtml(){
@@ -960,6 +963,8 @@ document.addEventListener('click', async e => {
         break;
       }
 
+      case 'saveClassName': await handleSaveClassName(); break;
+      
       case 'leaveClass': {
         if(!confirm('Покинуть класс? Вы сможете создать новый.')) break;
         await updateDoc(doc(db,'users',S.user.uid), { classId: null });
@@ -1056,6 +1061,9 @@ document.addEventListener('keydown', e => {
   if(e.target.id === 'addByEmail'){
     document.querySelector('[data-action="addMemberByEmail"]')?.click();
   }
+  if(e.target.id === 'classNameEdit'){
+    document.querySelector('[data-action="saveClassName"]')?.click();
+  }
 });
 
 /* ============================================================
@@ -1145,6 +1153,17 @@ async function handleAddTask(){
 
   await loadClassData(); render();
   toast('Задание добавлено','ok');
+}
+
+async function handleSaveClassName(){
+  const inp = document.getElementById('classNameEdit');
+  const name = (inp?.value || '').trim();
+  if(name.length < 2){ toast('Введите название класса','err'); return; }
+  if(name === S.classDoc.name){ toast('Название не изменилось'); return; }
+  await updateDoc(doc(db,'classes',S.classDoc.id), { name });
+  S.classDoc.name = name;
+  render();
+  toast('Название класса обновлено','ok');
 }
 
 async function handleAddMemberByEmail(email){
