@@ -168,17 +168,28 @@ html[data-theme="dark"] .task-img{border-color:var(--line)}
    👇👇👇  ЗАПОЛНИТЕ ЭТИ ДВА БЛОКА СВОИМИ КЛЮЧАМИ  👇👇👇
    ============================================================ */
 
+// ─── БЛОК 1: FIREBASE (для входа и базы данных) ─────────────
+// Где взять: console.firebase.google.com
+//   → шестерёнка → Настройки проекта
+//   → прокрутить вниз до "Ваши приложения"
+//   → выбрать Web App → "Конфигурация SDK"
 const firebaseConfig = {
-  apiKey:            "ВСТАВЬТЕ_СЮДА",
-  authDomain:        "ВСТАВЬТЕ_СЮДА",
-  projectId:         "ВСТАВЬТЕ_СЮДА",
-  storageBucket:     "ВСТАВЬТЕ_СЮДА",
-  messagingSenderId: "ВСТАВЬТЕ_СЮДА",
-  appId:             "ВСТАВЬТЕ_СЮДА"
+  apiKey:            "AIzaSyBh2n7IayFxpY5SOC0yhbGTETaNvHUhpgI",
+  authDomain:        "teacher-board-97abf.firebaseapp.com",
+  projectId:         "teacher-board-97abf",
+  storageBucket:     "teacher-board-97abf.firebasestorage.app",
+  messagingSenderId: "111043281658",
+  appId:             "1:111043281658:web:111effb79d906b31b2bf43"
 };
 
-const SUPABASE_URL = "https://ВАШ-ПРОЕКТ.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ВСТАВЬТЕ_СЮДА";
+// ─── БЛОК 2: SUPABASE (для хранения файлов) ─────────────────
+// URL:  в Supabase слева шестерёнка → Settings → Data API → Project URL
+// KEY:  Settings → API Keys → вкладка Publishable and secret API keys
+//       → Publishable key (начинается с sb_publishable_)
+const SUPABASE_URL = "https://drktpstpildqesxedphx.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_kQlIVzyjwdm-GOp7r4SM5A_nl5EaBXc";
+
+// Имя bucket'а, который вы создали в Supabase Storage
 const SUPABASE_BUCKET = "homework";
 
 /* ============================================================
