@@ -678,7 +678,17 @@ async function loadClassData() {
     S.members = mSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     S.tasks   = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const q = query(collection(db, 'assignments'), where('classId', '==', S.classDoc.id));
+    const q = S.profile?.role === 'teacher'
+  ? query(
+      collection(db, 'assignments'),
+      where('classId', '==', S.classDoc.id),
+      where('teacherId', '==', S.user.uid)
+    )
+  : query(
+      collection(db, 'assignments'),
+      where('classId', '==', S.classDoc.id),
+      where('studentId', '==', S.user.uid)
+    );
     S.unsubAssignments = onSnapshot(q, snap => {
       S.assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (S.booting) return;
