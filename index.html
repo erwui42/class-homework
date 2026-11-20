@@ -588,13 +588,11 @@ const fmtDateStr = s => {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// Старые записи с done=true считаем уже принятыми, чтобы не сломать существующие данные.
 const isAccepted = a => a?.reviewStatus === 'accepted' || (a?.done === true && !a?.reviewStatus);
 const isUnderReview = a => a?.reviewStatus === 'pending';
 const needsRevision = a => a?.reviewStatus === 'revision';
 const hasBeenSubmitted = a => ['pending', 'accepted', 'revision'].includes(a?.reviewStatus) || isAccepted(a);
 
-// Просрочено только то, что ученик ещё не сдал (не pending/accepted/revision).
 const isOverdue = a => !hasBeenSubmitted(a) && a.deadline &&
   new Date(a.deadline + 'T23:59:59').getTime() < Date.now();
 
@@ -749,7 +747,7 @@ function refreshLiveParts() {
 }
 
 /* ============================================================
-   RENDER — сохраняет позицию скролла, если не передан resetScroll
+   RENDER
    ============================================================ */
 function render(resetScroll = false) {
   const root = document.getElementById('app');
@@ -837,7 +835,7 @@ async function handleAuth() {
 
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    const profile = { name, role: S.ui.authRole, email, classId: null, createdAt: Date.now() };
+    const profile = { name, role: S.ui.authRole, email, createdAt: Date.now() };
     await setDoc(doc(db, 'users', cred.user.uid), profile);
     await updateProfile(cred.user, { displayName: name });
 
@@ -928,7 +926,6 @@ async function handleJoinClass() {
 
   const classId = snap.docs[0].id;
 
-  // Если ученик уже был в другом классе — очищаем старую запись из members
   if (S.profile.classId && S.profile.classId !== classId) {
     try {
       await deleteDoc(doc(db, 'classes', S.profile.classId, 'members', S.user.uid));
@@ -1054,7 +1051,7 @@ function submissionsTab() {
   <div class="stats" id="teacherStats">${teacherStatsHtml()}</div>
   <div class="card">
     <h2>Все задания</h2>
-    <p class="muted small">Откройте работу ученика, чтобы посмотреть файл, поставить оценку и оставить замечания.</p>
+    <p class="muted small">Откройте работу ученика, чтобы посмотреть файл, текст ответа, поставить оценку и оставить замечания.</p>
     <div class="filters" style="margin-top:14px">
       <input id="searchInput" placeholder="Поиск по заданию, предмету или ученику" value="${esc(S.ui.search)}">
       <select data-change="filterStudent">
@@ -1074,7 +1071,7 @@ function submissionsTab() {
       <table>
         <thead><tr>
           <th>Ученик</th><th>Задание</th><th>Выдано</th>
-          <th>Срок</th><th>Статус</th><th>Файл ученика</th><th>Действия</th>
+          <th>Срок</th><th>Статус</th><th>Ответ ученика</th><th>Действия</th>
         </tr></thead>
         <tbody id="assignTbody">${assignmentRows()}</tbody>
       </table>
@@ -1137,8 +1134,8 @@ function assignmentRows() {
       <td class="small">${a.deadline ? fmtDateStr(a.deadline) : '—'}</td>
       <td>${statusBadge(a)}</td>
       <td>
-        ${a.fileUrl
-          ? `<a class="attach" href="${esc(a.fileUrl)}" target="_blank" rel="noopener" title="${esc(a.fileName)}">${ICON_ATTACH}<span class="attach-name">${esc(a.fileName || 'файл')}</span></a>`
+        ${a.fileUrl || a.answerText
+          ? `<span class="badge ok" style="font-size:11px">Есть ответ</span>`
           : '<span class="muted small">—</span>'}
       </td>
       <td class="ta-r">
@@ -1153,7 +1150,7 @@ function statusBadge(a) {
   if (needsRevision(a)) return `<span class="badge warn">На исправлении</span>`;
   if (isAccepted(a)) return `<span class="badge ok">Принято${a.doneAt ? ' · ' + fmtDate(a.doneAt) : ''}</span>`;
   if (isOverdue(a)) return `<span class="badge danger">Просрочено</span>`;
-  if (a.fileUrl) return `<span class="badge warn">Файл загружен</span>`;
+  if (a.fileUrl || a.answerText) return `<span class="badge warn">Черновик</span>`;
   return `<span class="badge warn">Не сдано</span>`;
 }
 
@@ -1172,10 +1169,18 @@ function reviewDialogHtml() {
           </div>
           <button class="modal-close" data-action="closeReview" aria-label="Закрыть">×</button>
         </div>
+        
+        ${a.answerText ? `
+          <div class="hint" style="margin-top:14px; background: #f0fdf4; border-color: #bbf7d0;">
+            <div style="font-weight:700; margin-bottom:6px; color:#166534">Текстовый ответ ученика:</div>
+            <div style="white-space:pre-wrap; font-size:14px; color:#1b2438">${esc(a.answerText)}</div>
+          </div>
+        ` : ''}
+
         <div class="hint" style="margin-top:14px">
           ${a.fileUrl
             ? `Файл ученика: <a href="${esc(a.fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700">${ICON_ATTACH} ${esc(a.fileName || 'Открыть файл')}</a>`
-            : 'Ученик пока не прикрепил файл.'}
+            : (!a.answerText ? 'Ученик пока не прикрепил файл и не написал текст.' : '')}
           ${a.submittedAt ? `<div class="small muted" style="margin-top:5px">Отправлено: ${fmtDate(a.submittedAt)}</div>` : ''}
         </div>
         <div class="modal-field">
@@ -1554,15 +1559,15 @@ function studentAssignmentsHtml() {
     const accepted = isAccepted(a);
     const underReview = isUnderReview(a);
     const revision = needsRevision(a);
-    // Порядок: проверено (зелёное) → просрочено (красное) → на исправление (жёлтое) → обычное
     const cls = accepted ? 'done'
       : isOverdue(a) ? 'overdue'
       : revision ? 'revision'
       : '';
     const att = getTaskAttachment(a);
     const canEditSubmission = !accepted && !underReview;
-    const canSubmit = canEditSubmission && Boolean(a.fileUrl);
     const hasReviewNotes = a.grade != null || a.teacherFeedback || a.errors;
+    const currentText = a.answerText || '';
+    
     return `
     <div class="acard ${cls}">
       <div style="flex:1;min-width:220px">
@@ -1585,14 +1590,6 @@ function studentAssignmentsHtml() {
              </div>`
         ) : ''}
 
-        ${a.fileUrl
-          ? `<div style="margin-top:10px">
-               <a class="attach" href="${esc(a.fileUrl)}" target="_blank" rel="noopener" title="${esc(a.fileName)}">
-                 ${ICON_ATTACH}<span class="attach-name">${esc(a.fileName || 'прикреплённый файл')}</span>
-               </a>
-             </div>`
-          : ''}
-
         ${hasReviewNotes ? `
           <div class="review-result">
             ${a.grade != null ? `<div class="review-part"><b>Оценка: ${esc(a.grade)}</b>${revision ? '<span class="muted small"> · предварительно, исправьте работу</span>' : ''}</div>` : ''}
@@ -1602,17 +1599,25 @@ function studentAssignmentsHtml() {
           </div>` : ''}
 
         ${underReview ? `<p class="muted small" style="margin-top:12px">Работа отправлена учителю. После проверки здесь появятся оценка и комментарии.</p>` : ''}
+        
+        ${canEditSubmission ? `
+          <div style="margin-top:16px; width:100%">
+            <label class="lbl">Текстовый ответ (можно вместо файла или вместе с ним)</label>
+            <textarea data-answer-text="${a.id}" rows="4" placeholder="Введите ваш ответ здесь...">${esc(currentText)}</textarea>
+          </div>
+        ` : ''}
       </div>
 
-      <div class="actions">
+      <div class="actions" style="flex-direction:column; align-items:flex-end; gap:8px; min-width:160px">
         ${canEditSubmission ? `
-          <label class="file-upload">
+          <label class="file-upload" style="width:100%; justify-content:center">
             ${ICON_PLUS} ${a.fileUrl ? 'Заменить файл' : 'Прикрепить файл'}
             <input type="file" data-change="uploadFile" data-id="${a.id}">
           </label>
-          ${canSubmit ? `<button class="btn ok" data-action="submitAssignment" data-id="${a.id}">${revision ? 'Отправить повторно' : 'Отправить на проверку'}</button>` : ''}
+          <button class="btn ghost" style="width:100%" data-action="saveDraft" data-id="${a.id}">Сохранить черновик</button>
+          <button class="btn ok" style="width:100%" data-action="submitAssignment" data-id="${a.id}">${revision ? 'Отправить повторно' : 'Отправить на проверку'}</button>
         ` : ''}
-        ${accepted ? `<span class="badge ok">Работа принята</span>` : ''}
+        ${accepted ? `<span class="badge ok" style="width:100%; text-align:center">Работа принята</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1622,7 +1627,6 @@ function studentAssignmentsHtml() {
    ACTIONS
    ============================================================ */
 document.addEventListener('click', async e => {
-  // Клик по фону модалки закрывает её.
   if (e.target.classList.contains('modal-backdrop')) {
     if (S.ui.reviewAssignmentId) {
       S.ui.reviewAssignmentId = null;
@@ -1742,6 +1746,7 @@ document.addEventListener('click', async e => {
         break;
       }
 
+      case 'saveDraft': await saveDraft(el.dataset.id); break;
       case 'submitAssignment': await submitAssignment(el.dataset.id); break;
       case 'reviewAssignment':
         if (S.profile?.role !== 'teacher') { toast('Проверять работы может только учитель', 'err'); break; }
@@ -1818,7 +1823,6 @@ document.addEventListener('change', async e => {
   }
 });
 
-/* Подсветка кнопки «Прикрепить файл» в каталоге */
 document.addEventListener('change', e => {
   if (e.target.id === 'newTaskFile') {
     const label = document.getElementById('newTaskFileLabel');
@@ -1842,7 +1846,6 @@ document.addEventListener('input', e => {
 });
 
 document.addEventListener('keydown', e => {
-  // Escape закрывает модалку проверки.
   if (e.key === 'Escape' && S.ui.reviewAssignmentId) {
     S.ui.reviewAssignmentId = null;
     render();
@@ -1898,6 +1901,7 @@ async function handleCreateAssignments() {
         reviewStatus: 'notSubmitted', submittedAt: null, reviewedAt: null,
         grade: null, teacherFeedback: '', errors: '',
         fileUrl: null, fileName: null, filePath: null,
+        answerText: '',
         teacherId: S.user.uid, teacherName: S.profile.name,
         createdAt: Date.now()
       });
@@ -1997,7 +2001,7 @@ async function deleteLessonMaterial(id) {
     catch (err) { console.warn('Не удалось удалить вложение заготовки:', err); }
   }
   if (S.ui.editLessonId === id) S.ui.editLessonId = null;
-  render();  // перерисовываем, чтобы форма редактирования обновилась / закрылась
+  render();
   toast('Заготовка удалена');
 }
 
@@ -2249,15 +2253,36 @@ async function uploadHomeworkFile(assignmentId, inputEl) {
   }
 }
 
+async function saveDraft(id) {
+  const assign = S.assignments.find(a => a.id === id);
+  if (!assign || assign.studentId !== S.user.uid) return;
+  
+  const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
+  const answerText = textArea ? textArea.value.trim() : '';
+
+  await updateDoc(doc(db, 'assignments', id), {
+    answerText: answerText
+  });
+  toast('Черновик сохранен', 'ok');
+}
+
 async function submitAssignment(id) {
   const assign = S.assignments.find(a => a.id === id);
   if (!assign || assign.studentId !== S.user.uid) throw new Error('Задание не найдено');
-  if (!assign.fileUrl) { toast('Сначала прикрепите файл с выполненной работой', 'err'); return; }
+  
+  const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
+  const answerText = textArea ? textArea.value.trim() : '';
+
+  if (!assign.fileUrl && !answerText) {
+    toast('Добавьте текст ответа или прикрепите файл перед отправкой', 'err');
+    return;
+  }
   if (isUnderReview(assign)) { toast('Работа уже находится на проверке'); return; }
   if (isAccepted(assign)) { toast('Работа уже принята учителем'); return; }
 
   await updateDoc(doc(db, 'assignments', id), {
     reviewStatus: 'pending',
+    answerText: answerText,
     submittedAt: Date.now(),
     submissionAttempt: (Number(assign.submissionAttempt) || 0) + 1
   });
@@ -2270,9 +2295,9 @@ async function saveReview(id, decision) {
   if (!assign || assign.classId !== S.classDoc.id || assign.teacherId !== S.user.uid) {
     throw new Error('Работа не найдена в вашем классе');
   }
-  // Старые задания, отмеченные done=true до появления проверки, можно оценить и без файла.
-  if (!hasBeenSubmitted(assign) || (!assign.fileUrl && !isAccepted(assign))) {
-    throw new Error('У ученика нет отправленной работы для проверки');
+  
+  if (!hasBeenSubmitted(assign) || (!assign.fileUrl && !assign.answerText && !isAccepted(assign))) {
+    throw new Error('У ученика нет отправленной работы для проверки (нет ни файла, ни текста)');
   }
 
   const gradeRaw = (document.getElementById('reviewGrade')?.value || '').trim();
