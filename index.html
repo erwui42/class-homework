@@ -1173,7 +1173,8 @@ function reviewDialogHtml() {
         ${a.answerText ? `
           <div class="hint" style="margin-top:14px; background: #f0fdf4; border-color: #bbf7d0;">
             <div style="font-weight:700; margin-bottom:6px; color:#166534">Текстовый ответ ученика:</div>
-            <div style="white-space:pre-wrap; font-size:14px; color:#1b2438">${esc(a.answerText)}</div>
+            <!-- ИСПРАВЛЕНИЕ ЗДЕСЬ: добавлены word-break и overflow-wrap для корректного переноса длинного текста -->
+            <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; font-size:14px; color:#1b2438">${esc(a.answerText)}</div>
           </div>
         ` : ''}
 
