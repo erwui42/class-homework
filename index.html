@@ -225,7 +225,6 @@ input:focus, select:focus, textarea:focus {
 }
 @media (max-width: 720px) { .filters { grid-template-columns: 1fr; } }
 .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--line); }
-/* ИСПРАВЛЕНО: table-layout: fixed вместо min-width:720px — таблица всегда влезает в экран */
 table { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
 th {
   text-align: left; padding: 11px 12px; background: #f7f9fe;
@@ -241,7 +240,6 @@ tr:last-child td { border-bottom: none; }
 tr.is-done td { background: #fbfefc; }
 tr:hover td { background: #fafbff; }
 .empty { text-align: center; color: var(--muted); padding: 34px 14px !important; }
-/* ИСПРАВЛЕНО: утилита для сокращения длинных названий с многоточием */
 .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 /* ============ BADGES / PROGRESS ============ */
@@ -305,7 +303,7 @@ tr:hover td { background: #fafbff; }
   display: grid; place-items: center; padding: 18px; overflow-y: auto;
 }
 .modal-card {
-  width: min(100%, 620px); min-width: 0; /* ИСПРАВЛЕНО: min-width:0 — длинное слово не растягивает карточку */
+  width: min(100%, 620px); min-width: 0;
   max-height: calc(100vh - 36px); overflow-y: auto;
   background: var(--card); color: var(--ink); border: 1px solid var(--line);
   border-radius: 18px; padding: 22px; box-shadow: 0 24px 80px rgba(0, 0, 0, .28);
@@ -490,10 +488,6 @@ html[data-theme="dark"] .lesson-grade-row textarea { background:#141a28; color:v
 
 <script type="module">
 
-/* ============================================================
-   👇👇👇  ВПИШИТЕ СВОИ КЛЮЧИ (только этот блок)  👇👇👇
-   ============================================================ */
-
 const firebaseConfig = {
   apiKey:            "AIzaSyBh2n7IayFxpY5SOC0yhbGTETaNvHUhpgI",
   authDomain:        "teacher-board-97abf.firebaseapp.com",
@@ -507,15 +501,11 @@ const SUPABASE_URL = "https://drktpstpildqesxedphx.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_kQlIVzyjwdm-GOp7r4SM5A_nl5EaBXc";
 const SUPABASE_BUCKET = "homework";
 
-/* ============================================================
-   ⬆⬆⬆  БОЛЬШЕ НИЧЕГО НЕ МЕНЯЙТЕ  ⬆⬆⬆
-   ============================================================ */
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, onAuthStateChanged,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut, updateProfile
+  signOut, updateProfile, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
@@ -528,17 +518,11 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-/* ============================================================
-   ИКОНКИ
-   ============================================================ */
 const ICON_ATTACH = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
 const ICON_PLUS = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 const ICON_FILE = `<svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
 const ICON_EYE = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 
-/* ============================================================
-   ТЕМА
-   ============================================================ */
 function applyTheme() {
   const theme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', theme);
@@ -563,9 +547,6 @@ function authThemeBtn() {
   return `<button class="auth-theme" data-action="toggleTheme" title="Сменить тему">${cur === 'dark' ? '☀️' : '🌙'}</button>`;
 }
 
-/* ============================================================
-   STATE
-   ============================================================ */
 const S = {
   user: null, profile: null, classDoc: null,
   members: [], tasks: [], assignments: [],
@@ -581,45 +562,21 @@ const S = {
 };
 let registering = false;
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
-const esc = s => String(s ?? '').replace(/[&<>"']/g,
-  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-// ИСПРАВЛЕНО: обрезает длинные тексты для коротких превью в списках
-const trunc = (s, n = 60) => {
-  s = String(s ?? '');
-  return s.length > n ? s.slice(0, n).trimEnd() + '…' : s;
-};
-
-const fmtDate = ts => new Date(ts).toLocaleDateString('ru-RU',
-  { day: '2-digit', month: '2-digit', year: '2-digit' });
-
-const fmtDateStr = s => {
-  const d = new Date(s + 'T00:00:00');
-  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
-};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const trunc = (s, n = 60) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n).trimEnd() + '…' : s; };
+const fmtDate = ts => new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+const fmtDateStr = s => new Date(s + 'T00:00:00').toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const isAccepted = a => a?.reviewStatus === 'accepted' || (a?.done === true && !a?.reviewStatus);
 const isUnderReview = a => a?.reviewStatus === 'pending';
 const needsRevision = a => a?.reviewStatus === 'revision';
 const hasBeenSubmitted = a => ['pending', 'accepted', 'revision'].includes(a?.reviewStatus) || isAccepted(a);
-
-const isOverdue = a => !hasBeenSubmitted(a) && a.deadline &&
-  new Date(a.deadline + 'T23:59:59').getTime() < Date.now();
-
+const isOverdue = a => !hasBeenSubmitted(a) && a.deadline && new Date(a.deadline + 'T23:59:59').getTime() < Date.now();
 const genCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
 function getTaskAttachment(t) {
   if (!t) return null;
-  if (t.attachmentUrl) {
-    return {
-      url: t.attachmentUrl,
-      name: t.attachmentName || 'файл',
-      isImage: t.attachmentType === 'image'
-    };
-  }
+  if (t.attachmentUrl) return { url: t.attachmentUrl, name: t.attachmentName || 'файл', isImage: t.attachmentType === 'image' };
   if (t.imageUrl) return { url: t.imageUrl, name: 'изображение', isImage: true };
   return null;
 }
@@ -640,34 +597,20 @@ function toast(msg, type = '') {
   setTimeout(() => el.remove(), 2800);
 }
 
-/* ============================================================
-   BOOT + загрузка данных
-   ============================================================ */
 onAuthStateChanged(auth, async (user) => {
   if (registering) return;
   S.user = user;
-
   if (!user) {
-    S.profile = null; S.classDoc = null;
-    S.members = []; S.tasks = []; S.assignments = [];
-    stopClassSubscriptions();
-    S.lessonMaterials = []; S.activeLesson = null; S.lessonGrades = [];
+    S.profile = null; S.classDoc = null; S.members = []; S.tasks = []; S.assignments = [];
+    stopClassSubscriptions(); S.lessonMaterials = []; S.activeLesson = null; S.lessonGrades = [];
     S.booting = false; render(true); return;
   }
-
   try {
     const snap = await getDoc(doc(db, 'users', user.uid));
-    S.profile = snap.exists() ? snap.data() : {
-      name: user.displayName || '', role: 'student',
-      email: user.email, classId: null
-    };
+    S.profile = snap.exists() ? snap.data() : { name: user.displayName || '', role: 'student', email: user.email, classId: null };
     await loadClassData();
-  } catch (e) {
-    console.error(e);
-    toast('Ошибка: ' + e.message, 'err');
-  }
-  S.booting = false;
-  render(true);
+  } catch (e) { console.error(e); toast('Ошибка: ' + e.message, 'err'); }
+  S.booting = false; render(true);
 });
 
 function stopClassSubscriptions() {
@@ -678,15 +621,12 @@ function stopClassSubscriptions() {
 
 async function loadClassData() {
   stopClassSubscriptions();
-  S.classDoc = null; S.members = []; S.tasks = []; S.assignments = [];
-  S.lessonMaterials = []; S.activeLesson = null; S.lessonGrades = [];
+  S.classDoc = null; S.members = []; S.tasks = []; S.assignments = []; S.lessonMaterials = []; S.activeLesson = null; S.lessonGrades = [];
   if (!S.profile?.classId) return;
-
   try {
     const cSnap = await getDoc(doc(db, 'classes', S.profile.classId));
     if (!cSnap.exists()) return;
     S.classDoc = { id: cSnap.id, ...cSnap.data() };
-
     const [mSnap, tSnap] = await Promise.all([
       getDocs(collection(db, 'classes', S.classDoc.id, 'members')),
       getDocs(collection(db, 'classes', S.classDoc.id, 'tasks'))
@@ -695,20 +635,11 @@ async function loadClassData() {
     S.tasks   = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const q = S.profile?.role === 'teacher'
-      ? query(
-          collection(db, 'assignments'),
-          where('classId', '==', S.classDoc.id),
-          where('teacherId', '==', S.user.uid)
-        )
-      : query(
-          collection(db, 'assignments'),
-          where('classId', '==', S.classDoc.id),
-          where('studentId', '==', S.user.uid)
-        );
+      ? query(collection(db, 'assignments'), where('classId', '==', S.classDoc.id), where('teacherId', '==', S.user.uid))
+      : query(collection(db, 'assignments'), where('classId', '==', S.classDoc.id), where('studentId', '==', S.user.uid));
     S.unsubAssignments = onSnapshot(q, snap => {
       S.assignments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (S.booting) return;
-      refreshLiveParts();
+      if (S.booting) return; refreshLiveParts();
     }, err => console.error('snapshot:', err));
 
     const liveRef = doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current');
@@ -718,72 +649,42 @@ async function loadClassData() {
     }, err => console.error('lesson live snapshot:', err));
 
     const gradesRef = collection(db, 'classes', S.classDoc.id, 'lessonGrades');
-    const gradesQuery = S.profile?.role === 'teacher'
-      ? gradesRef
-      : query(gradesRef, where('studentId', '==', S.user.uid));
+    const gradesQuery = S.profile?.role === 'teacher' ? gradesRef : query(gradesRef, where('studentId', '==', S.user.uid));
     S.unsubLessonGrades = onSnapshot(gradesQuery, snap => {
-      S.lessonGrades = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      S.lessonGrades = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       if (!S.booting) refreshLiveParts();
     }, err => console.error('lesson grades snapshot:', err));
 
     if (S.profile?.role === 'teacher') {
       const materialsRef = collection(db, 'classes', S.classDoc.id, 'lessonMaterials');
       S.unsubLessonMaterials = onSnapshot(materialsRef, snap => {
-        S.lessonMaterials = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        S.lessonMaterials = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         if (!S.booting) refreshLessonMaterialsList();
       }, err => console.error('lesson materials snapshot:', err));
     }
-
-  } catch (e) {
-    console.error(e);
-    toast('Ошибка загрузки: ' + e.message, 'err');
-  }
+  } catch (e) { console.error(e); toast('Ошибка загрузки: ' + e.message, 'err'); }
 }
 
 function refreshLiveParts() {
-  const tb = document.getElementById('assignTbody');
-  if (tb) tb.innerHTML = assignmentRows();
-  const st = document.getElementById('teacherStats');
-  if (st) st.innerHTML = teacherStatsHtml();
-  const sc = document.getElementById('studentCards');
-  if (sc) sc.innerHTML = studentAssignmentsHtml();
-  const ss = document.getElementById('studentStats');
-  if (ss) ss.innerHTML = studentStatsHtml();
-  const studentLesson = document.getElementById('studentLessonPanel');
-  if (studentLesson) studentLesson.innerHTML = studentLessonPanelHtml();
-  const teacherLesson = document.getElementById('teacherLessonLivePanel');
-  if (teacherLesson) teacherLesson.innerHTML = teacherActiveLessonHtml();
-  const studentGrades = document.getElementById('studentLessonGrades');
-  if (studentGrades) studentGrades.innerHTML = studentLessonGradesHtml();
+  const tb = document.getElementById('assignTbody'); if (tb) tb.innerHTML = assignmentRows();
+  const st = document.getElementById('teacherStats'); if (st) st.innerHTML = teacherStatsHtml();
+  const sc = document.getElementById('studentCards'); if (sc) sc.innerHTML = studentAssignmentsHtml();
+  const ss = document.getElementById('studentStats'); if (ss) ss.innerHTML = studentStatsHtml();
+  const studentLesson = document.getElementById('studentLessonPanel'); if (studentLesson) studentLesson.innerHTML = studentLessonPanelHtml();
+  const teacherLesson = document.getElementById('teacherLessonLivePanel'); if (teacherLesson) teacherLesson.innerHTML = teacherActiveLessonHtml();
+  const studentGrades = document.getElementById('studentLessonGrades'); if (studentGrades) studentGrades.innerHTML = studentLessonGradesHtml();
 }
 
-/* ============================================================
-   RENDER
-   ============================================================ */
 function render(resetScroll = false) {
   const root = document.getElementById('app');
   const y = resetScroll ? 0 : window.scrollY;
-
-  if (S.booting) {
-    root.innerHTML = '<div class="loading">Загрузка…</div>';
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    return;
-  }
-  if (!S.user || !S.profile) {
-    root.innerHTML = authScreen();
-  } else if (S.profile.role === 'teacher') {
-    root.innerHTML = S.classDoc ? teacherScreen() : createClassScreen();
-  } else {
-    root.innerHTML = S.classDoc ? studentScreen() : joinClassScreen();
-  }
+  if (S.booting) { root.innerHTML = '<div class="loading">Загрузка…</div>'; window.scrollTo({ top: 0, behavior: 'instant' }); return; }
+  if (!S.user || !S.profile) { root.innerHTML = authScreen(); }
+  else if (S.profile.role === 'teacher') { root.innerHTML = S.classDoc ? teacherScreen() : createClassScreen(); }
+  else { root.innerHTML = S.classDoc ? studentScreen() : joinClassScreen(); }
   window.scrollTo({ top: y, behavior: 'instant' });
 }
 
-/* ============================================================
-   AUTH
-   ============================================================ */
 function authScreen() {
   const isLogin = S.ui.authMode === 'login';
   const role = S.ui.authRole;
@@ -794,12 +695,10 @@ function authScreen() {
       <div class="logo">КР</div>
       <h1>Классная работа</h1>
       <p class="muted">${isLogin ? 'Вход в личный кабинет' : 'Создание аккаунта'}</p>
-
       <div class="role-toggle">
         <button class="role ${isLogin ? 'active' : ''}" data-action="authMode" data-mode="login">Вход</button>
         <button class="role ${!isLogin ? 'active' : ''}" data-action="authMode" data-mode="register">Регистрация</button>
       </div>
-
       ${!isLogin ? `
         <div class="role-toggle" style="margin-top:12px">
           <button class="role ${role === 'teacher' ? 'active' : ''}" data-action="authRole" data-role="teacher">Учитель</button>
@@ -808,19 +707,15 @@ function authScreen() {
         <label class="lbl">Имя и фамилия</label>
         <input id="authName" placeholder="Например: Анна Смирнова">
       ` : ''}
-
       <label class="lbl">Email</label>
       <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="lbl">Пароль</label>
-      <input id="authPass" type="password" placeholder="Минимум 6 символов"
-             autocomplete="${isLogin ? 'current-password' : 'new-password'}">
-
+      <input id="authPass" type="password" placeholder="Минимум 6 символов" autocomplete="${isLogin ? 'current-password' : 'new-password'}">
       <button class="btn block" data-action="authSubmit">${isLogin ? 'Войти' : 'Зарегистрироваться'}</button>
+      ${isLogin ? `<p class="small muted" style="margin-top:12px;text-align:center"><button class="link" data-action="resetPassword">Забыли пароль?</button></p>` : ''}
       <p class="small muted" style="margin-top:16px;text-align:center">
         ${isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}
-        <button class="link" data-action="authMode" data-mode="${isLogin ? 'register' : 'login'}">
-          ${isLogin ? 'Зарегистрироваться' : 'Войти'}
-        </button>
+        <button class="link" data-action="authMode" data-mode="${isLogin ? 'register' : 'login'}">${isLogin ? 'Зарегистрироваться' : 'Войти'}</button>
       </p>
     </div>
   </div>`;
@@ -833,46 +728,30 @@ async function handleAuth() {
   if (pass.length < 6) { toast('Пароль должен быть не короче 6 символов', 'err'); return; }
 
   if (S.ui.authMode === 'login') {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (e) {
-      const codes = ['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential'];
-      toast(codes.includes(e.code) ? 'Неверный email или пароль' : e.message, 'err');
-    }
+    try { await signInWithEmailAndPassword(auth, email, pass); }
+    catch (e) { toast(['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential'].includes(e.code) ? 'Неверный email или пароль' : e.message, 'err'); }
     return;
   }
-
   const name = (document.getElementById('authName').value || '').trim();
   if (name.length < 2) { toast('Введите имя', 'err'); return; }
   registering = true;
-
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     const profile = { name, role: S.ui.authRole, email, createdAt: Date.now() };
     await setDoc(doc(db, 'users', cred.user.uid), profile);
     await updateProfile(cred.user, { displayName: name });
-
-    S.user = cred.user;
-    S.profile = profile;
-    await loadClassData();
-    S.booting = false;
-    render(true);
+    S.user = cred.user; S.profile = profile;
+    await loadClassData(); S.booting = false; render(true);
     toast('Аккаунт создан!', 'ok');
-
   } catch (e) {
     if (e.code === 'auth/email-already-in-use') toast('Этот email уже используется', 'err');
     else if (e.code === 'auth/invalid-email') toast('Некорректный email', 'err');
     else if (e.code === 'auth/weak-password') toast('Слишком слабый пароль', 'err');
     else toast(e.message, 'err');
     try { await signOut(auth); } catch (_) {}
-  } finally {
-    registering = false;
-  }
+  } finally { registering = false; }
 }
 
-/* ============================================================
-   TEACHER — создание класса
-   ============================================================ */
 function createClassScreen() {
   return `
   <div class="auth-wrap">
@@ -884,9 +763,7 @@ function createClassScreen() {
       <label class="lbl">Название класса</label>
       <input id="className" placeholder="Например: 8 «А», математика">
       <button class="btn block" data-action="createClass">Создать класс</button>
-      <p class="small muted" style="margin-top:16px;text-align:center">
-        <button class="link" data-action="logout">Выйти</button>
-      </p>
+      <p class="small muted" style="margin-top:16px;text-align:center"><button class="link" data-action="logout">Выйти</button></p>
     </div>
   </div>`;
 }
@@ -894,22 +771,14 @@ function createClassScreen() {
 async function handleCreateClass() {
   const name = (document.getElementById('className').value || '').trim();
   if (name.length < 2) { toast('Введите название класса', 'err'); return; }
-
   const code = genCode();
-  const ref = await addDoc(collection(db, 'classes'), {
-    name, teacherId: S.user.uid, teacherName: S.profile.name,
-    inviteCode: code, createdAt: Date.now()
-  });
+  const ref = await addDoc(collection(db, 'classes'), { name, teacherId: S.user.uid, teacherName: S.profile.name, inviteCode: code, createdAt: Date.now() });
   await updateDoc(doc(db, 'users', S.user.uid), { classId: ref.id });
   S.profile.classId = ref.id;
-  await loadClassData();
-  render(true);
+  await loadClassData(); render(true);
   toast(`Класс создан! Код: ${code}`, 'ok');
 }
 
-/* ============================================================
-   STUDENT — присоединение к классу
-   ============================================================ */
 function joinClassScreen() {
   return `
   <div class="auth-wrap">
@@ -919,13 +788,9 @@ function joinClassScreen() {
       <h1>Присоединитесь к классу</h1>
       <p class="muted">Введите код-приглашение, который дал учитель.</p>
       <label class="lbl">Код класса</label>
-      <input id="inviteCode" placeholder="Например: ABC123"
-             style="text-transform:uppercase;letter-spacing:3px;font-family:ui-monospace,monospace;font-size:18px;text-align:center"
-             maxlength="8">
+      <input id="inviteCode" placeholder="Например: ABC123" style="text-transform:uppercase;letter-spacing:3px;font-family:ui-monospace,monospace;font-size:18px;text-align:center" maxlength="8">
       <button class="btn block" data-action="joinClass">Войти в класс</button>
-      <p class="small muted" style="margin-top:16px;text-align:center">
-        <button class="link" data-action="logout">Выйти</button>
-      </p>
+      <p class="small muted" style="margin-top:16px;text-align:center"><button class="link" data-action="logout">Выйти</button></p>
     </div>
   </div>`;
 }
@@ -933,37 +798,26 @@ function joinClassScreen() {
 async function handleJoinClass() {
   const code = (document.getElementById('inviteCode').value || '').trim().toUpperCase();
   if (!code) { toast('Введите код', 'err'); return; }
-
   const snap = await getDocs(query(collection(db, 'classes'), where('inviteCode', '==', code)));
   if (snap.empty) { toast('Класс с таким кодом не найден', 'err'); return; }
-
   const classId = snap.docs[0].id;
-
   if (S.profile.classId && S.profile.classId !== classId) {
-    try {
-      await deleteDoc(doc(db, 'classes', S.profile.classId, 'members', S.user.uid));
-    } catch (_) { /* старая запись могла быть уже удалена — не страшно */ }
+    try { await deleteDoc(doc(db, 'classes', S.profile.classId, 'members', S.user.uid)); } catch (_) {}
   }
-
-  await setDoc(doc(db, 'classes', classId, 'members', S.user.uid), {
-    name: S.profile.name, email: S.profile.email, joinedAt: Date.now()
-  });
+  await setDoc(doc(db, 'classes', classId, 'members', S.user.uid), { name: S.profile.name, email: S.profile.email, joinedAt: Date.now() });
   await updateDoc(doc(db, 'users', S.user.uid), { classId });
   S.profile.classId = classId;
-  await loadClassData();
-  render(true);
+  await loadClassData(); render(true);
   toast('Вы вступили в класс', 'ok');
 }
 
-/* ============================================================
-   TEACHER SCREEN
-   ============================================================ */
 function teacherScreen() {
   return `
   <header class="topbar">
     <div class="brand"><span class="logo small">КР</span> ${esc(S.classDoc.name)}</div>
     <div class="userbox">
       ${themeBtn()}
+      <button class="btn ghost sm" data-action="editUserName" title="Изменить имя">✏️ Имя</button>
       <span class="badge-role">Учитель</span>
       <b>${esc(S.profile.name)}</b>
       <button class="btn ghost sm" data-action="logout">Выйти</button>
@@ -982,20 +836,16 @@ function teacherScreen() {
   </main>`;
 }
 
-function tabBtn(id, label) {
-  return `<button class="tab ${S.ui.tab === id ? 'active' : ''}" data-action="tab" data-tab="${id}">${label}</button>`;
-}
-
+function tabBtn(id, label) { return `<button class="tab ${S.ui.tab === id ? 'active' : ''}" data-action="tab" data-tab="${id}">${label}</button>`; }
 function teacherTabContent() {
-  if (S.ui.tab === 'assign')      return assignTab();
+  if (S.ui.tab === 'assign') return assignTab();
   if (S.ui.tab === 'submissions') return submissionsTab();
-  if (S.ui.tab === 'members')     return membersTab();
-  if (S.ui.tab === 'catalog')     return catalogTab();
-  if (S.ui.tab === 'lesson')      return lessonTab();
+  if (S.ui.tab === 'members') return membersTab();
+  if (S.ui.tab === 'catalog') return catalogTab();
+  if (S.ui.tab === 'lesson') return lessonTab();
   return settingsTab();
 }
 
-/* --- Выдать задание --- */
 function assignTab() {
   const count = S.ui.selStudents.size * S.ui.selTasks.size;
   return `
@@ -1004,92 +854,53 @@ function assignTab() {
       <h2>1. Кому</h2>
       <p class="muted small">Отметьте учеников</p>
       <div class="chips">
-        ${S.members.length
-          ? S.members.map(m => `
-              <label class="chip ${S.ui.selStudents.has(m.id) ? 'on' : ''}">
-                <input type="checkbox" data-change="toggleStudent" data-id="${m.id}"
-                       ${S.ui.selStudents.has(m.id) ? 'checked' : ''}>
-                <span>${esc(m.name)}</span>
-              </label>`).join('')
-          : '<span class="muted small">В классе пока нет учеников</span>'}
+        ${S.members.length ? S.members.map(m => `<label class="chip ${S.ui.selStudents.has(m.id) ? 'on' : ''}"><input type="checkbox" data-change="toggleStudent" data-id="${m.id}" ${S.ui.selStudents.has(m.id) ? 'checked' : ''}><span>${esc(m.name)}</span></label>`).join('') : '<span class="muted small">В классе пока нет учеников</span>'}
       </div>
-      ${S.members.length ? `
-        <button class="link" data-action="toggleAllStudents">
-          ${S.ui.selStudents.size === S.members.length ? 'Снять выделение' : 'Выбрать всех'}
-        </button>` : ''}
+      ${S.members.length ? `<button class="link" data-action="toggleAllStudents">${S.ui.selStudents.size === S.members.length ? 'Снять выделение' : 'Выбрать всех'}</button>` : ''}
     </div>
-
     <div class="card">
       <h2>2. Что задать</h2>
       <p class="muted small">Из каталога заданий</p>
       <div class="tasklist">
-        ${S.tasks.length
-          ? S.tasks.map(t => `
-              <label class="task-item ${S.ui.selTasks.has(t.id) ? 'on' : ''}">
-                <input type="checkbox" data-change="toggleTask" value="${t.id}"
-                       ${S.ui.selTasks.has(t.id) ? 'checked' : ''}>
-                ${renderTaskThumb(t)}
-                <div style="min-width:0; flex:1">
-                  <div class="tt ell">${esc(t.title)}</div>
-                  <div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 40)) : ''}</div>
-                </div>
-              </label>`).join('')
-          : '<p class="muted small">Каталог пуст — добавьте задания на вкладке «Задания».</p>'}
+        ${S.tasks.length ? S.tasks.map(t => `<label class="task-item ${S.ui.selTasks.has(t.id) ? 'on' : ''}"><input type="checkbox" data-change="toggleTask" value="${t.id}" ${S.ui.selTasks.has(t.id) ? 'checked' : ''}>${renderTaskThumb(t)}<div style="min-width:0; flex:1"><div class="tt ell">${esc(t.title)}</div><div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 40)) : ''}</div></div></label>`).join('') : '<p class="muted small">Каталог пуст — добавьте задания на вкладке «Задания».</p>'}
       </div>
     </div>
   </div>
-
   <div class="card">
     <h2>3. Срок и отправка</h2>
     <div class="row" style="align-items:flex-end;flex-wrap:wrap">
-      <div style="flex:1;min-width:220px">
-        <label class="lbl" style="margin-top:0">Срок сдачи (необязательно)</label>
-        <input type="date" value="${S.ui.deadline}" data-change="setDeadline">
-      </div>
-      <button class="btn" data-action="createAssignments" style="padding:13px 26px">
-        Разослать задания${count ? ` (${count})` : ''}
-      </button>
+      <div style="flex:1;min-width:220px"><label class="lbl" style="margin-top:0">Срок сдачи (необязательно)</label><input type="date" value="${S.ui.deadline}" data-change="setDeadline"></div>
+      <button class="btn" data-action="createAssignments" style="padding:13px 26px">Разослать задания${count ? ` (${count})` : ''}</button>
     </div>
-    <div class="hint" style="margin-top:16px">
-      Выбрано учеников: <b>${S.ui.selStudents.size}</b> ·
-      заданий: <b>${S.ui.selTasks.size}</b> ·
-      карточек будет: <b>${count}</b>
-    </div>
+    <div class="hint" style="margin-top:16px">Выбрано учеников: <b>${S.ui.selStudents.size}</b> · заданий: <b>${S.ui.selTasks.size}</b> · карточек будет: <b>${count}</b></div>
   </div>`;
 }
 
-/* --- Проверка --- */
 function submissionsTab() {
   return `
   <div class="stats" id="teacherStats">${teacherStatsHtml()}</div>
   <div class="card">
-    <h2>Все задания</h2>
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:14px">
+      <h2 style="margin:0">Все задания</h2>
+      <button class="btn ghost sm" data-action="exportCSV">📥 Экспорт журнала в CSV</button>
+    </div>
     <p class="muted small">Откройте работу ученика, чтобы посмотреть файл, текст ответа, поставить оценку и оставить замечания.</p>
     <div class="filters" style="margin-top:14px">
       <input id="searchInput" placeholder="Поиск по заданию, предмету или ученику" value="${esc(S.ui.search)}">
-      <select data-change="filterStudent">
-        <option value="">Все ученики</option>
-        ${S.members.map(m => `<option value="${m.id}" ${S.ui.filterStudent === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
-      </select>
+      <select data-change="filterStudent"><option value="">Все ученики</option>${S.members.map(m => `<option value="${m.id}" ${S.ui.filterStudent === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
       <select data-change="filterStatus">
-        <option value=""            ${S.ui.filterStatus === '' ? 'selected' : ''}>Все статусы</option>
-        <option value="pending"     ${S.ui.filterStatus === 'pending' ? 'selected' : ''}>На проверке</option>
-        <option value="accepted"    ${S.ui.filterStatus === 'accepted' ? 'selected' : ''}>Приняты</option>
-        <option value="revision"    ${S.ui.filterStatus === 'revision' ? 'selected' : ''}>На исправлении</option>
-        <option value="notSubmitted"${S.ui.filterStatus === 'notSubmitted' ? 'selected' : ''}>Не сданы</option>
-        <option value="overdue"     ${S.ui.filterStatus === 'overdue' ? 'selected' : ''}>Просрочены</option>
+        <option value="" ${S.ui.filterStatus === '' ? 'selected' : ''}>Все статусы</option>
+        <option value="pending" ${S.ui.filterStatus === 'pending' ? 'selected' : ''}>На проверке</option>
+        <option value="accepted" ${S.ui.filterStatus === 'accepted' ? 'selected' : ''}>Приняты</option>
+        <option value="revision" ${S.ui.filterStatus === 'revision' ? 'selected' : ''}>На исправлении</option>
+        <option value="notSubmitted" ${S.ui.filterStatus === 'notSubmitted' ? 'selected' : ''}>Не сданы</option>
+        <option value="overdue" ${S.ui.filterStatus === 'overdue' ? 'selected' : ''}>Просрочены</option>
       </select>
     </div>
     <div class="table-wrap">
       <table>
-        <colgroup>
-          <col style="width:13%"><col style="width:27%"><col style="width:10%">
-          <col style="width:10%"><col style="width:13%"><col style="width:11%"><col style="width:16%">
-        </colgroup>
-        <thead><tr>
-          <th>Ученик</th><th>Задание</th><th>Выдано</th>
-          <th>Срок</th><th>Статус</th><th>Ответ</th><th>Действия</th>
-        </tr></thead>
+        <colgroup><col style="width:13%"><col style="width:27%"><col style="width:10%"><col style="width:10%"><col style="width:13%"><col style="width:11%"><col style="width:16%"></colgroup>
+        <thead><tr><th>Ученик</th><th>Задание</th><th>Выдано</th><th>Срок</th><th>Статус</th><th>Ответ</th><th>Действия</th></tr></thead>
         <tbody id="assignTbody">${assignmentRows()}</tbody>
       </table>
     </div>
@@ -1099,14 +910,11 @@ function submissionsTab() {
 
 function teacherStatsHtml() {
   const all = S.assignments;
-  const accepted = all.filter(isAccepted).length;
-  const review = all.filter(isUnderReview).length;
-  const over = all.filter(isOverdue).length;
   return `
     <div class="stat"><div class="num">${all.length}</div><div class="cap">Всего выдано</div></div>
-    <div class="stat ok"><div class="num">${accepted}</div><div class="cap">Принято</div></div>
-    <div class="stat warn"><div class="num">${review}</div><div class="cap">На проверке</div></div>
-    <div class="stat danger"><div class="num">${over}</div><div class="cap">Просрочено</div></div>`;
+    <div class="stat ok"><div class="num">${all.filter(isAccepted).length}</div><div class="cap">Принято</div></div>
+    <div class="stat warn"><div class="num">${all.filter(isUnderReview).length}</div><div class="cap">На проверке</div></div>
+    <div class="stat danger"><div class="num">${all.filter(isOverdue).length}</div><div class="cap">Просрочено</div></div>`;
 }
 
 function filteredAssignments() {
@@ -1119,9 +927,7 @@ function filteredAssignments() {
     if (S.ui.filterStatus === 'overdue' && !isOverdue(a)) return false;
     if (S.ui.search) {
       const q = S.ui.search.toLowerCase();
-      if (!(String(a.title || '').toLowerCase().includes(q) ||
-            String(a.studentName || '').toLowerCase().includes(q) ||
-            String(a.subject || '').toLowerCase().includes(q))) return false;
+      if (!(String(a.title || '').toLowerCase().includes(q) || String(a.studentName || '').toLowerCase().includes(q) || String(a.subject || '').toLowerCase().includes(q))) return false;
     }
     return true;
   }).sort((x, y) => {
@@ -1132,7 +938,6 @@ function filteredAssignments() {
   });
 }
 
-// ИСПРАВЛЕНО: имена и названия сокращаются с многоточием (.ell), таблица влезает без бокового скролла
 function assignmentRows() {
   const rows = filteredAssignments();
   if (!rows.length) return `<tr><td colspan="7" class="empty">Нет заданий по этим фильтрам</td></tr>`;
@@ -1147,11 +952,7 @@ function assignmentRows() {
       <td class="muted small">${fmtDate(a.createdAt)}</td>
       <td class="small">${a.deadline ? fmtDateStr(a.deadline) : '—'}</td>
       <td>${statusBadge(a)}</td>
-      <td>
-        ${a.fileUrl || a.answerText
-          ? `<span class="badge ok" style="font-size:11px">Есть</span>`
-          : '<span class="muted small">—</span>'}
-      </td>
+      <td>${a.fileUrl || a.answerText ? `<span class="badge ok" style="font-size:11px">Есть</span>` : '<span class="muted small">—</span>'}</td>
       <td style="text-align:right">
         ${hasBeenSubmitted(a) ? `<button class="btn sm ${isUnderReview(a) ? '' : 'ghost'}" data-action="reviewAssignment" data-id="${a.id}">${isUnderReview(a) ? 'Проверить' : 'Смотреть'}</button>` : ''}
         <button class="btn ghost sm" data-action="delAssignment" data-id="${a.id}">Удалить</button>
@@ -1183,36 +984,14 @@ function reviewDialogHtml() {
           </div>
           <button class="modal-close" data-action="closeReview" aria-label="Закрыть">×</button>
         </div>
-
-        ${a.answerText ? `
-          <div class="hint" style="margin-top:14px; background:#f0fdf4; border-color:#bbf7d0;">
-            <div style="font-weight:700; margin-bottom:6px; color:#166534">Текстовый ответ ученика:</div>
-            <!-- ИСПРАВЛЕНО: overflow-wrap:anywhere — длинное слово рвётся посимвольно, поле растёт ВНИЗ -->
-            <div style="white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; font-size:14px; color:#1b2438; max-width:100%">${esc(a.answerText)}</div>
-          </div>
-        ` : ''}
-
+        ${a.answerText ? `<div class="hint" style="margin-top:14px; background:#f0fdf4; border-color:#bbf7d0;"><div style="font-weight:700; margin-bottom:6px; color:#166534">Текстовый ответ ученика:</div><div style="white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; font-size:14px; color:#1b2438; max-width:100%">${esc(a.answerText)}</div></div>` : ''}
         <div class="hint" style="margin-top:14px">
-          ${a.fileUrl
-            ? `Файл ученика: <a href="${esc(a.fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700">${ICON_ATTACH} ${esc(a.fileName || 'Открыть файл')}</a>`
-            : (!a.answerText ? 'Ученик пока не прикрепил файл и не написал текст.' : '')}
+          ${a.fileUrl ? `Файл ученика: <a href="${esc(a.fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700">${ICON_ATTACH} ${esc(a.fileName || 'Открыть файл')}</a>` : (!a.answerText ? 'Ученик пока не прикрепил файл и не написал текст.' : '')}
           ${a.submittedAt ? `<div class="small muted" style="margin-top:5px">Отправлено: ${fmtDate(a.submittedAt)}</div>` : ''}
         </div>
-        <div class="modal-field">
-          <label class="lbl" for="reviewGrade">Оценка (от 1 до 5)</label>
-          <input id="reviewGrade" type="number" min="1" max="5" step="1" value="${a.grade != null ? esc(a.grade) : ''}" placeholder="Например, 5">
-        </div>
-        <div class="modal-field">
-          <label class="lbl" for="reviewFeedback">Комментарий учителя</label>
-          <textarea id="reviewFeedback" placeholder="Общий комментарий к работе">${esc(a.teacherFeedback || '')}</textarea>
-        </div>
-        <div class="modal-field">
-          <label class="lbl" for="reviewErrors">Ошибки и что нужно исправить</label>
-          <textarea id="reviewErrors" placeholder="Например:
-1. Ошибка в задании 2
-2. Не хватает решения задачи 4">${esc(a.errors || '')}</textarea>
-          <div class="muted small" style="margin-top:5px">Можно перечислить ошибки с новой строки — ученик увидит их в своей карточке.</div>
-        </div>
+        <div class="modal-field"><label class="lbl" for="reviewGrade">Оценка (от 1 до 5)</label><input id="reviewGrade" type="number" min="1" max="5" step="1" value="${a.grade != null ? esc(a.grade) : ''}" placeholder="Например, 5"></div>
+        <div class="modal-field"><label class="lbl" for="reviewFeedback">Комментарий учителя</label><textarea id="reviewFeedback" placeholder="Общий комментарий к работе">${esc(a.teacherFeedback || '')}</textarea></div>
+        <div class="modal-field"><label class="lbl" for="reviewErrors">Ошибки и что нужно исправить</label><textarea id="reviewErrors" placeholder="Например:\n1. Ошибка в задании 2\n2. Не хватает решения задачи 4">${esc(a.errors || '')}</textarea><div class="muted small" style="margin-top:5px">Можно перечислить ошибки с новой строки — ученик увидит их в своей карточке.</div></div>
         <div class="modal-actions">
           <button class="btn ghost" data-action="closeReview">Отмена</button>
           <button class="btn danger" data-action="sendRevision" data-id="${a.id}">На исправление</button>
@@ -1222,108 +1001,52 @@ function reviewDialogHtml() {
     </div>`;
 }
 
-/* --- Ученики --- */
 function membersTab() {
   return `
   <div class="card">
     <h2>Ученики класса</h2>
-    <div class="hint" style="margin-top:14px">
-      Код для учеников:
-      <b style="font-family:ui-monospace,monospace;font-size:16px;letter-spacing:2px">${esc(S.classDoc.inviteCode)}</b>
-      <button class="btn ghost sm" style="margin-left:10px" data-action="copyCode">Копировать</button>
-    </div>
+    <div class="hint" style="margin-top:14px">Код для учеников: <b style="font-family:ui-monospace,monospace;font-size:16px;letter-spacing:2px">${esc(S.classDoc.inviteCode)}</b><button class="btn ghost sm" style="margin-left:10px" data-action="copyCode">Копировать</button></div>
     <div class="divider"></div>
-
     <h3>Добавить по email</h3>
     <p class="muted small">Ученик должен быть уже зарегистрирован</p>
-    <div class="row">
-      <input id="addByEmail" type="email" placeholder="student@example.com">
-      <button class="btn" data-action="addMemberByEmail">Добавить</button>
-    </div>
-
+    <div class="row"><input id="addByEmail" type="email" placeholder="student@example.com"><button class="btn" data-action="addMemberByEmail">Добавить</button></div>
     <div class="divider"></div>
     <h3>Уже в классе (${S.members.length})</h3>
     <div style="margin-top:10px">
-      ${S.members.length
-        ? S.members.map(m => {
-            const list = S.assignments.filter(a => a.studentId === m.id);
-            return `
-              <div class="list-row">
-                <div style="flex:1; min-width:0">
-                  <b class="ell" style="display:inline-block; max-width:100%">${esc(m.name)}</b>
-                  ${m.email ? `<span class="muted small"> · ${esc(m.email)}</span>` : ''}
-                  <span class="muted small"> · заданий: ${list.length}</span>
-                </div>
-                <button class="btn ghost sm" data-action="removeMember"
-                        data-id="${m.id}" data-name="${esc(m.name)}">Удалить</button>
-              </div>`;
-          }).join('')
-        : '<p class="muted small">Учеников пока нет.</p>'}
+      ${S.members.length ? S.members.map(m => {
+        const list = S.assignments.filter(a => a.studentId === m.id);
+        return `<div class="list-row"><div style="flex:1; min-width:0"><b class="ell" style="display:inline-block; max-width:100%">${esc(m.name)}</b>${m.email ? `<span class="muted small"> · ${esc(m.email)}</span>` : ''}<span class="muted small"> · заданий: ${list.length}</span></div><button class="btn ghost sm" data-action="removeMember" data-id="${m.id}" data-name="${esc(m.name)}">Удалить</button></div>`;
+      }).join('') : '<p class="muted small">Учеников пока нет.</p>'}
     </div>
   </div>`;
 }
 
-/* --- Каталог --- */
 function catalogTab() {
   const subjects = [...new Set(S.tasks.map(t => t.subject))];
   return `
   <div class="card">
     <h2>Добавить задание в каталог</h2>
     <p class="muted small">Можно прикрепить файл — ученики увидят его в задании</p>
-
-    <div class="row" style="flex-wrap:wrap">
-      <input id="newTaskTitle" placeholder="Название задания" style="flex:2;min-width:220px">
-      <input id="newTaskSubject" list="subjectList" placeholder="Предмет" style="flex:1;min-width:150px">
-      <datalist id="subjectList">
-        ${subjects.map(s => `<option value="${esc(s)}">`).join('')}
-      </datalist>
-    </div>
-
-    <div class="row">
-      <input id="newTaskDesc" placeholder="Описание (необязательно)">
-    </div>
-
+    <div class="row" style="flex-wrap:wrap"><input id="newTaskTitle" placeholder="Название задания" style="flex:2;min-width:220px"><input id="newTaskSubject" list="subjectList" placeholder="Предмет" style="flex:1;min-width:150px"><datalist id="subjectList">${subjects.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+    <div class="row"><input id="newTaskDesc" placeholder="Описание (необязательно)"></div>
     <div class="row" style="align-items:center;flex-wrap:wrap">
-      <label class="file-upload" id="newTaskFileLabel">
-        ${ICON_PLUS} Прикрепить файл (необязательно)
-        <input type="file" id="newTaskFile">
-      </label>
-      <div style="flex:1"></div>
-      <button class="btn" data-action="addTask">Добавить</button>
+      <label class="file-upload" id="newTaskFileLabel">${ICON_PLUS} Прикрепить файл (необязательно)<input type="file" id="newTaskFile"></label>
+      <div style="flex:1"></div><button class="btn" data-action="addTask">Добавить</button>
     </div>
   </div>
-
   <div class="card">
     <h2>Каталог (${S.tasks.length})</h2>
     <p class="muted small">Нажмите «Открыть», чтобы посмотреть задание целиком.</p>
     <div style="margin-top:14px">
-      ${S.tasks.length
-        ? S.tasks.map(t => {
-            const att = getTaskAttachment(t);
-            return `
-              <div class="list-row">
-                ${renderTaskThumb(t)}
-                <div style="flex:1;min-width:200px">
-                  <div class="ell" style="font-weight:600">${esc(t.title)}</div>
-                  <div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 60)) : ''}</div>
-                  ${att ? `<div class="muted small" style="margin-top:4px">
-                    <a href="${esc(att.url)}" target="_blank" rel="noopener"
-                       style="color:var(--primary);text-decoration:none">${esc(att.name)}</a>
-                  </div>` : ''}
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap">
-                  <button class="btn ghost sm" data-action="viewTask" data-id="${t.id}">${ICON_EYE} Открыть</button>
-                  <button class="btn ghost sm" data-action="delTask" data-id="${t.id}">Удалить</button>
-                </div>
-              </div>`;
-          }).join('')
-        : '<p class="muted small">Каталог пуст.</p>'}
+      ${S.tasks.length ? S.tasks.map(t => {
+        const att = getTaskAttachment(t);
+        return `<div class="list-row">${renderTaskThumb(t)}<div style="flex:1;min-width:200px"><div class="ell" style="font-weight:600">${esc(t.title)}</div><div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 60)) : ''}</div>${att ? `<div class="muted small" style="margin-top:4px"><a href="${esc(att.url)}" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none">${esc(att.name)}</a></div>` : ''}</div><div style="display:flex; gap:8px; flex-wrap:wrap"><button class="btn ghost sm" data-action="viewTask" data-id="${t.id}">${ICON_EYE} Открыть</button><button class="btn ghost sm" data-action="delTask" data-id="${t.id}">Удалить</button></div></div>`;
+      }).join('') : '<p class="muted small">Каталог пуст.</p>'}
     </div>
   </div>
   ${taskViewDialogHtml()}`;
 }
 
-// ИСПРАВЛЕНО: модалка полного просмотра задания из каталога
 function taskViewDialogHtml() {
   if (S.profile?.role !== 'teacher' || !S.ui.viewTaskId) return '';
   const t = S.tasks.find(x => x.id === S.ui.viewTaskId);
@@ -1333,27 +1056,16 @@ function taskViewDialogHtml() {
     <div class="modal-backdrop">
       <section class="modal-card" role="dialog" aria-modal="true">
         <div class="modal-head">
-          <div>
-            <h2 style="overflow-wrap:anywhere">${esc(t.title)}</h2>
-            <div class="muted small" style="margin-top:4px; overflow-wrap:anywhere">${esc(t.subject || 'Без предмета')}</div>
-          </div>
+          <div><h2 style="overflow-wrap:anywhere">${esc(t.title)}</h2><div class="muted small" style="margin-top:4px; overflow-wrap:anywhere">${esc(t.subject || 'Без предмета')}</div></div>
           <button class="modal-close" data-action="closeTaskView" aria-label="Закрыть">×</button>
         </div>
-        ${t.desc
-          ? `<div class="hint" style="margin-top:14px; white-space:pre-wrap; overflow-wrap:anywhere">${esc(t.desc)}</div>`
-          : '<p class="muted small" style="margin-top:14px">Описание не указано.</p>'}
-        ${att ? (att.isImage
-          ? `<a href="${esc(att.url)}" target="_blank" rel="noopener"><img src="${esc(att.url)}" class="task-img" alt="${esc(att.name)}"></a>`
-          : `<div style="margin-top:12px"><a class="attach" href="${esc(att.url)}" target="_blank" rel="noopener">${ICON_ATTACH}<span class="attach-name">${esc(att.name)}</span></a></div>`)
-          : ''}
-        <div class="modal-actions">
-          <button class="btn ghost" data-action="closeTaskView">Закрыть</button>
-        </div>
+        ${t.desc ? `<div class="hint" style="margin-top:14px; white-space:pre-wrap; overflow-wrap:anywhere">${esc(t.desc)}</div>` : '<p class="muted small" style="margin-top:14px">Описание не указано.</p>'}
+        ${att ? (att.isImage ? `<a href="${esc(att.url)}" target="_blank" rel="noopener"><img src="${esc(att.url)}" class="task-img" alt="${esc(att.name)}"></a>` : `<div style="margin-top:12px"><a class="attach" href="${esc(att.url)}" target="_blank" rel="noopener">${ICON_ATTACH}<span class="attach-name">${esc(att.name)}</span></a></div>`) : ''}
+        <div class="modal-actions"><button class="btn ghost" data-action="closeTaskView">Закрыть</button></div>
       </section>
     </div>`;
 }
 
-/* --- Материалы урока --- */
 function lessonTab() {
   const editing = S.ui.editLessonId ? S.lessonMaterials.find(x => x.id === S.ui.editLessonId) : null;
   return `
@@ -1361,21 +1073,13 @@ function lessonTab() {
   <div class="card">
     <h2>${editing ? 'Редактировать заготовку' : 'Создать заготовку урока'}</h2>
     <p class="muted small">Сохраняйте наборы вопросов и заданий заранее. На уроке можно будет показывать их ученикам по одному.</p>
-    <div class="row" style="flex-wrap:wrap">
-      <input id="lessonTitle" placeholder="Название урока или темы" value="${esc(editing?.title || '')}" style="flex:2;min-width:220px">
-      <input id="lessonSubject" placeholder="Предмет" value="${esc(editing?.subject || '')}" style="flex:1;min-width:150px">
-    </div>
-    <div class="row">
-      <input id="lessonDescription" placeholder="Краткое описание (необязательно)" value="${esc(editing?.description || '')}">
-    </div>
+    <div class="row" style="flex-wrap:wrap"><input id="lessonTitle" placeholder="Название урока или темы" value="${esc(editing?.title || '')}" style="flex:2;min-width:220px"><input id="lessonSubject" placeholder="Предмет" value="${esc(editing?.subject || '')}" style="flex:1;min-width:150px"></div>
+    <div class="row"><input id="lessonDescription" placeholder="Краткое описание (необязательно)" value="${esc(editing?.description || '')}"></div>
     <label class="lbl" for="lessonItems" style="margin-top:14px">Задания и вопросы</label>
-    <textarea id="lessonItems" rows="8" placeholder="Каждое задание — с новой строки&#10;&#10;1. Решите уравнение…&#10;2. Объясните…&#10;3. Приведите пример…">${esc((editing?.items || []).join('\n'))}</textarea>
+    <textarea id="lessonItems" rows="8" placeholder="Каждое задание — с новой строки\n\n1. Решите уравнение…\n2. Объясните…\n3. Приведите пример…">${esc((editing?.items || []).join('\n'))}</textarea>
     <p class="muted small">Каждая непустая строка станет отдельным заданием. Можно хранить до 40 заданий в одной заготовке.</p>
     <div class="lesson-actions">
-      <label class="file-upload" id="lessonFileLabel">
-        ${ICON_PLUS} <span id="lessonFileLabelText">${editing?.attachmentName ? 'Заменить файл' : 'Прикрепить файл к уроку'}</span>
-        <input type="file" id="lessonFile" data-change="lessonFilePicked" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip">
-      </label>
+      <label class="file-upload" id="lessonFileLabel">${ICON_PLUS} <span id="lessonFileLabelText">${editing?.attachmentName ? 'Заменить файл' : 'Прикрепить файл к уроку'}</span><input type="file" id="lessonFile" data-change="lessonFilePicked" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip"></label>
       <span class="muted small">До 50 МБ</span>
     </div>
     ${editing?.attachmentUrl ? `<div class="lesson-file-preview small">Сейчас прикреплён: <a class="attach" href="${esc(editing.attachmentUrl)}" target="_blank" rel="noopener">${ICON_ATTACH}<span class="attach-name">${esc(editing.attachmentName || 'файл')}</span></a><span class="muted"> · новый файл заменит этот</span></div>` : ''}
@@ -1409,17 +1113,12 @@ function lessonMaterialsListHtml() {
 function lessonAttachmentHtml(lesson) {
   if (!lesson?.attachmentUrl) return '';
   const name = lesson.attachmentName || 'Материал к уроку';
-  if (lesson.attachmentType === 'image') {
-    return `<div class="lesson-file-preview"><a href="${esc(lesson.attachmentUrl)}" target="_blank" rel="noopener"><img src="${esc(lesson.attachmentUrl)}" class="task-img" alt="${esc(name)}"></a></div>`;
-  }
+  if (lesson.attachmentType === 'image') return `<div class="lesson-file-preview"><a href="${esc(lesson.attachmentUrl)}" target="_blank" rel="noopener"><img src="${esc(lesson.attachmentUrl)}" class="task-img" alt="${esc(name)}"></a></div>`;
   return `<div class="lesson-file-preview"><a class="attach" href="${esc(lesson.attachmentUrl)}" target="_blank" rel="noopener" title="${esc(name)}">${ICON_ATTACH}<span class="attach-name">${esc(name)}</span></a></div>`;
 }
 
 function lessonGradeSelect(label, studentId, type, value) {
-  return `<div><label>${label}</label><select data-lesson-grade="${type}" data-student-id="${studentId}">
-    <option value="" ${value == null ? 'selected' : ''}>—</option>
-    ${[1,2,3,4,5].map(n => `<option value="${n}" ${Number(value) === n ? 'selected' : ''}>${n}</option>`).join('')}
-  </select></div>`;
+  return `<div><label>${label}</label><select data-lesson-grade="${type}" data-student-id="${studentId}"><option value="" ${value == null ? 'selected' : ''}>—</option>${[1,2,3,4,5].map(n => `<option value="${n}" ${Number(value) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`;
 }
 
 function teacherLessonGradesHtml(lesson) {
@@ -1432,10 +1131,7 @@ function teacherLessonGradesHtml(lesson) {
         const g = S.lessonGrades.find(x => x.runId === lesson.runId && x.studentId === m.id);
         return `<div class="lesson-grade-row">
           <div style="min-width:0"><b class="ell" style="display:inline-block; max-width:100%">${esc(m.name || 'Ученик')}</b><div class="muted small">${g?.updatedAt ? 'Обновлено: ' + fmtDate(g.updatedAt) : 'Оценки ещё не выставлены'}</div></div>
-          <div class="lesson-grade-fields">
-            ${lessonGradeSelect('За работу на уроке', m.id, 'lesson', g?.lessonGrade)}
-            ${lessonGradeSelect('За поведение', m.id, 'behavior', g?.behaviorGrade)}
-          </div>
+          <div class="lesson-grade-fields">${lessonGradeSelect('За работу на уроке', m.id, 'lesson', g?.lessonGrade)}${lessonGradeSelect('За поведение', m.id, 'behavior', g?.behaviorGrade)}</div>
           <button class="btn sm" data-action="saveLessonGrade" data-student-id="${m.id}">Сохранить</button>
           <textarea data-lesson-grade-comment="1" data-student-id="${m.id}" placeholder="Комментарий (необязательно)">${esc(g?.comment || '')}</textarea>
         </div>`;
@@ -1445,9 +1141,7 @@ function teacherLessonGradesHtml(lesson) {
 
 function teacherActiveLessonHtml() {
   const lesson = S.activeLesson;
-  if (!lesson?.runId || !Array.isArray(lesson.items) || !lesson.items.length) {
-    return '<div class="hint" style="margin-bottom:16px">Сейчас урок не запущен. Выберите готовую заготовку ниже и нажмите «Начать урок» — текущее задание появится у учеников.</div>';
-  }
+  if (!lesson?.runId || !Array.isArray(lesson.items) || !lesson.items.length) return '<div class="hint" style="margin-bottom:16px">Сейчас урок не запущен. Выберите готовую заготовку ниже и нажмите «Начать урок» — текущее задание появится у учеников.</div>';
   const isActive = Boolean(lesson.active);
   const index = Math.max(0, Math.min(Number(lesson.activeIndex) || 0, lesson.items.length - 1));
   return `
@@ -1464,8 +1158,7 @@ function teacherActiveLessonHtml() {
         <button class="btn ghost" data-action="lessonPrev" ${index === 0 ? 'disabled' : ''}>← Предыдущее</button>
         <button class="btn" data-action="lessonNext" ${index >= lesson.items.length - 1 ? 'disabled' : ''}>Следующее →</button>
         <button class="btn danger" data-action="endLesson">Завершить урок</button>
-      </div>
-      <p class="muted small" style="margin:12px 0 0">Ученики видят это задание в своём кабинете. Переключение обновляется автоматически.</p>` : '<p class="muted small" style="margin:12px 0 0">Урок завершён. Можно выставить или изменить оценки ниже.</p>'}
+      </div><p class="muted small" style="margin:12px 0 0">Ученики видят это задание в своём кабинете. Переключение обновляется автоматически.</p>` : '<p class="muted small" style="margin:12px 0 0">Урок завершён. Можно выставить или изменить оценки ниже.</p>'}
     </div>
     ${teacherLessonGradesHtml(lesson)}`;
 }
@@ -1491,18 +1184,7 @@ function studentLessonPanelHtml() {
 function studentLessonGradesHtml() {
   const grades = S.lessonGrades.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (!grades.length) return '';
-  return `<div class="card">
-    <h2>Мои оценки за уроки</h2>
-    ${grades.map(g => `<div class="lesson-material">
-      <b>${esc(g.lessonTitle || 'Урок')}</b>
-      <div class="lesson-material-meta">${esc(g.lessonSubject || 'Без предмета')}${g.updatedAt ? ' · ' + fmtDate(g.updatedAt) : ''}</div>
-      <div class="lesson-grade-history">
-        ${g.lessonGrade != null ? `<span class="badge ok">За урок: ${esc(g.lessonGrade)}</span>` : ''}
-        ${g.behaviorGrade != null ? `<span class="badge ${Number(g.behaviorGrade) >= 4 ? 'ok' : Number(g.behaviorGrade) <= 2 ? 'danger' : 'warn'}">Поведение: ${esc(g.behaviorGrade)}</span>` : ''}
-      </div>
-      ${g.comment ? `<p class="muted small" style="white-space:pre-wrap; overflow-wrap:anywhere; margin:9px 0 0">${esc(g.comment)}</p>` : ''}
-    </div>`).join('')}
-  </div>`;
+  return `<div class="card"><h2>Мои оценки за уроки</h2>${grades.map(g => `<div class="lesson-material"><b>${esc(g.lessonTitle || 'Урок')}</b><div class="lesson-material-meta">${esc(g.lessonSubject || 'Без предмета')}${g.updatedAt ? ' · ' + fmtDate(g.updatedAt) : ''}</div><div class="lesson-grade-history">${g.lessonGrade != null ? `<span class="badge ok">За урок: ${esc(g.lessonGrade)}</span>` : ''}${g.behaviorGrade != null ? `<span class="badge ${Number(g.behaviorGrade) >= 4 ? 'ok' : Number(g.behaviorGrade) <= 2 ? 'danger' : 'warn'}">Поведение: ${esc(g.behaviorGrade)}</span>` : ''}</div>${g.comment ? `<p class="muted small" style="white-space:pre-wrap; overflow-wrap:anywhere; margin:9px 0 0">${esc(g.comment)}</p>` : ''}</div>`).join('')}</div>`;
 }
 
 function refreshLessonMaterialsList() {
@@ -1510,31 +1192,19 @@ function refreshLessonMaterialsList() {
   if (list) list.innerHTML = lessonMaterialsListHtml();
 }
 
-/* --- Настройки класса --- */
 function settingsTab() {
   return `
   <div class="card">
     <h2>Класс</h2>
-
-    <div class="list-row">
-      <div><b>Название</b></div>
-      <div style="display:flex;gap:8px;flex:1;max-width:360px">
-        <input id="classNameEdit" value="${esc(S.classDoc.name)}" style="flex:1">
-        <button class="btn sm" data-action="saveClassName">Сохранить</button>
-      </div>
-    </div>
-
-    <div class="list-row">
-      <div><b>Код-приглашение</b></div>
-      <div><b style="font-family:ui-monospace,monospace;letter-spacing:2px">${esc(S.classDoc.inviteCode)}</b></div>
-    </div>
+    <div class="list-row"><div><b>Ваше имя</b></div><div style="display:flex;gap:8px;flex:1;max-width:360px"><input id="userNameEdit" value="${esc(S.profile.name)}" style="flex:1"><button class="btn sm" data-action="saveUserName">Сохранить</button></div></div>
+    <div class="list-row"><div><b>Название класса</b></div><div style="display:flex;gap:8px;flex:1;max-width:360px"><input id="classNameEdit" value="${esc(S.classDoc.name)}" style="flex:1"><button class="btn sm" data-action="saveClassName">Сохранить</button></div></div>
+    <div class="list-row"><div><b>Код-приглашение</b></div><div><b style="font-family:ui-monospace,monospace;letter-spacing:2px">${esc(S.classDoc.inviteCode)}</b></div></div>
     <div class="list-row"><div><b>Учеников</b></div><div>${S.members.length}</div></div>
     <div class="list-row"><div><b>Заданий в каталоге</b></div><div>${S.tasks.length}</div></div>
     <div class="list-row"><div><b>Выдано карточек</b></div><div>${S.assignments.length}</div></div>
-
     <div class="divider"></div>
     <button class="btn ghost" data-action="copyCode">Скопировать код</button>
-    <button class="btn danger" data-action="leaveClass" style="margin-left:8px">Покинуть класс</button>
+    <button class="btn danger" data-action="deleteClass" style="margin-left:8px">🗑 Удалить класс навсегда</button>
   </div>`;
 }
 
@@ -1544,20 +1214,17 @@ async function handleSaveClassName() {
   if (name.length < 2) { toast('Введите название класса', 'err'); return; }
   if (name === S.classDoc.name) { toast('Название не изменилось'); return; }
   await updateDoc(doc(db, 'classes', S.classDoc.id), { name });
-  S.classDoc.name = name;
-  render();
+  S.classDoc.name = name; render();
   toast('Название класса обновлено', 'ok');
 }
 
-/* ============================================================
-   STUDENT SCREEN
-   ============================================================ */
 function studentScreen() {
   return `
   <header class="topbar">
     <div class="brand"><span class="logo small">КР</span> ${esc(S.classDoc.name)}</div>
     <div class="userbox">
       ${themeBtn()}
+      <button class="btn ghost sm" data-action="editUserName" title="Изменить имя">✏️ Имя</button>
       <span class="badge-role">Ученик</span>
       <b>${esc(S.profile.name)}</b>
       <button class="btn ghost sm" data-action="studentLeaveClass" title="Покинуть класс">Покинуть класс</button>
@@ -1575,49 +1242,32 @@ function studentScreen() {
 
 function studentStatsHtml() {
   const mine = myAssignments();
-  const accepted = mine.filter(isAccepted).length;
-  const review = mine.filter(isUnderReview).length;
-  const over = mine.filter(isOverdue).length;
   return `
     <div class="stat"><div class="num">${mine.length}</div><div class="cap">Всего</div></div>
-    <div class="stat ok"><div class="num">${accepted}</div><div class="cap">Принято</div></div>
-    <div class="stat warn"><div class="num">${review}</div><div class="cap">На проверке</div></div>
-    <div class="stat danger"><div class="num">${over}</div><div class="cap">Просрочено</div></div>`;
+    <div class="stat ok"><div class="num">${mine.filter(isAccepted).length}</div><div class="cap">Принято</div></div>
+    <div class="stat warn"><div class="num">${mine.filter(isUnderReview).length}</div><div class="cap">На проверке</div></div>
+    <div class="stat danger"><div class="num">${mine.filter(isOverdue).length}</div><div class="cap">Просрочено</div></div>`;
 }
 
 function myAssignments() {
-  return S.assignments
-    .filter(a => a.studentId === S.user.uid)
-    .sort((x, y) => {
-      const rank = a => isUnderReview(a) ? 0 : needsRevision(a) ? 1 : isAccepted(a) ? 3 : 2;
-      const diff = rank(x) - rank(y);
-      if (diff) return diff;
-      return (x.deadline || '9999').localeCompare(y.deadline || '9999');
-    });
+  return S.assignments.filter(a => a.studentId === S.user.uid).sort((x, y) => {
+    const rank = a => isUnderReview(a) ? 0 : needsRevision(a) ? 1 : isAccepted(a) ? 3 : 2;
+    const diff = rank(x) - rank(y);
+    if (diff) return diff;
+    return (x.deadline || '9999').localeCompare(y.deadline || '9999');
+  });
 }
 
 function studentAssignmentsHtml() {
   const mine = myAssignments();
-  if (!mine.length) {
-    return `<div class="card" style="text-align:center;padding:44px 20px">
-      <h3>Заданий пока нет 🎉</h3>
-      <p class="muted small">Как только учитель что-то задаст, оно появится здесь.</p>
-    </div>`;
-  }
-
+  if (!mine.length) return `<div class="card" style="text-align:center;padding:44px 20px"><h3>Заданий пока нет 🎉</h3><p class="muted small">Как только учитель что-то задаст, оно появится здесь.</p></div>`;
   return mine.map(a => {
-    const accepted = isAccepted(a);
-    const underReview = isUnderReview(a);
-    const revision = needsRevision(a);
-    const cls = accepted ? 'done'
-      : isOverdue(a) ? 'overdue'
-      : revision ? 'revision'
-      : '';
+    const accepted = isAccepted(a), underReview = isUnderReview(a), revision = needsRevision(a);
+    const cls = accepted ? 'done' : isOverdue(a) ? 'overdue' : revision ? 'revision' : '';
     const att = getTaskAttachment(a);
     const canEditSubmission = !accepted && !underReview;
     const hasReviewNotes = a.grade != null || a.teacherFeedback || a.errors;
     const currentText = a.answerText || '';
-
     return `
     <div class="acard ${cls}">
       <div style="flex:1;min-width:220px">
@@ -1628,42 +1278,19 @@ function studentAssignmentsHtml() {
           ${a.deadline ? `<span class="muted small">Срок: ${fmtDateStr(a.deadline)}</span>` : ''}
           <span class="muted small">Учитель: ${esc(a.teacherName || '—')}</span>
         </div>
-
-        ${att ? (att.isImage
-          ? `<a href="${esc(att.url)}" target="_blank" rel="noopener">
-               <img src="${esc(att.url)}" class="task-img" alt="Вложение к заданию">
-             </a>`
-          : `<div style="margin-top:10px">
-               <a class="attach" href="${esc(att.url)}" target="_blank" rel="noopener" title="${esc(att.name)}">
-                 ${ICON_ATTACH}<span class="attach-name">${esc(att.name)}</span>
-               </a>
-             </div>`
-        ) : ''}
-
-        ${hasReviewNotes ? `
-          <div class="review-result">
-            ${a.grade != null ? `<div class="review-part"><b>Оценка: ${esc(a.grade)}</b>${revision ? '<span class="muted small"> · предварительно, исправьте работу</span>' : ''}</div>` : ''}
-            ${a.teacherFeedback ? `<div class="review-part"><b>Комментарий учителя</b><div class="review-text">${esc(a.teacherFeedback)}</div></div>` : ''}
-            ${a.errors ? `<div class="review-part"><b>Ошибки и исправления</b><div class="review-text">${esc(a.errors)}</div></div>` : ''}
-            ${a.reviewedAt ? `<div class="muted small" style="margin-top:8px">Проверено: ${fmtDate(a.reviewedAt)}</div>` : ''}
-          </div>` : ''}
-
+        ${att ? (att.isImage ? `<a href="${esc(att.url)}" target="_blank" rel="noopener"><img src="${esc(att.url)}" class="task-img" alt="Вложение к заданию"></a>` : `<div style="margin-top:10px"><a class="attach" href="${esc(att.url)}" target="_blank" rel="noopener" title="${esc(att.name)}">${ICON_ATTACH}<span class="attach-name">${esc(att.name)}</span></a></div>`) : ''}
+        ${hasReviewNotes ? `<div class="review-result">
+          ${a.grade != null ? `<div class="review-part"><b>Оценка: ${esc(a.grade)}</b>${revision ? '<span class="muted small"> · предварительно, исправьте работу</span>' : ''}</div>` : ''}
+          ${a.teacherFeedback ? `<div class="review-part"><b>Комментарий учителя</b><div class="review-text">${esc(a.teacherFeedback)}</div></div>` : ''}
+          ${a.errors ? `<div class="review-part"><b>Ошибки и исправления</b><div class="review-text">${esc(a.errors)}</div></div>` : ''}
+          ${a.reviewedAt ? `<div class="muted small" style="margin-top:8px">Проверено: ${fmtDate(a.reviewedAt)}</div>` : ''}
+        </div>` : ''}
         ${underReview ? `<p class="muted small" style="margin-top:12px">Работа отправлена учителю. После проверки здесь появятся оценка и комментарии.</p>` : ''}
-
-        ${canEditSubmission ? `
-          <div style="margin-top:16px; width:100%">
-            <label class="lbl">Текстовый ответ (можно вместо файла или вместе с ним)</label>
-            <textarea data-answer-text="${a.id}" rows="4" placeholder="Введите ваш ответ здесь...">${esc(currentText)}</textarea>
-          </div>
-        ` : ''}
+        ${canEditSubmission ? `<div style="margin-top:16px; width:100%"><label class="lbl">Текстовый ответ (можно вместо файла или вместе с ним)</label><textarea data-answer-text="${a.id}" rows="4" placeholder="Введите ваш ответ здесь...">${esc(currentText)}</textarea></div>` : ''}
       </div>
-
       <div class="actions" style="flex-direction:column; align-items:flex-end; gap:8px; min-width:160px">
         ${canEditSubmission ? `
-          <label class="file-upload" style="width:100%; justify-content:center">
-            ${ICON_PLUS} ${a.fileUrl ? 'Заменить файл' : 'Прикрепить файл'}
-            <input type="file" data-change="uploadFile" data-id="${a.id}">
-          </label>
+          <label class="file-upload" style="width:100%; justify-content:center">${ICON_PLUS} ${a.fileUrl ? 'Заменить файл' : 'Прикрепить файл'}<input type="file" data-change="uploadFile" data-id="${a.id}"></label>
           <button class="btn ghost" style="width:100%" data-action="saveDraft" data-id="${a.id}">Сохранить черновик</button>
           <button class="btn ok" style="width:100%" data-action="submitAssignment" data-id="${a.id}">${revision ? 'Отправить повторно' : 'Отправить на проверку'}</button>
         ` : ''}
@@ -1673,11 +1300,7 @@ function studentAssignmentsHtml() {
   }).join('');
 }
 
-/* ============================================================
-   ACTIONS
-   ============================================================ */
 document.addEventListener('click', async e => {
-  // Клик по фону модалки закрывает её.
   if (e.target.classList.contains('modal-backdrop')) {
     let changed = false;
     if (S.ui.reviewAssignmentId) { S.ui.reviewAssignmentId = null; changed = true; }
@@ -1685,56 +1308,40 @@ document.addEventListener('click', async e => {
     if (changed) render();
     return;
   }
-
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-
   try {
     switch (a) {
       case 'toggleTheme': toggleTheme(); break;
       case 'authMode': S.ui.authMode = el.dataset.mode; render(true); break;
       case 'authRole': S.ui.authRole = el.dataset.role; render(true); break;
       case 'authSubmit': await handleAuth(); break;
-      case 'logout': await signOut(auth); break;
+      case 'logout': if (!confirm('Вы уверены, что хотите выйти из аккаунта?')) break; await signOut(auth); break;
       case 'createClass': await handleCreateClass(); break;
       case 'joinClass': await handleJoinClass(); break;
       case 'tab': S.ui.tab = el.dataset.tab; render(true); break;
-
       case 'toggleAllStudents':
         if (S.ui.selStudents.size === S.members.length) S.ui.selStudents.clear();
         else S.members.forEach(m => S.ui.selStudents.add(m.id));
-        render();
-        break;
-
+        render(); break;
       case 'createAssignments': await handleCreateAssignments(); break;
-
       case 'delAssignment': {
         if (!confirm('Удалить это задание?')) break;
         const assign = S.assignments.find(x => x.id === el.dataset.id);
-        if (assign?.filePath) {
-          try { await supabase.storage.from(SUPABASE_BUCKET).remove([assign.filePath]); }
-          catch (err) { console.warn('Не удалить файл:', err); }
-        }
+        if (assign?.filePath) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([assign.filePath]); } catch (err) { console.warn('Не удалить файл:', err); } }
         await deleteDoc(doc(db, 'assignments', el.dataset.id));
-        toast('Задание удалено');
-        break;
+        toast('Задание удалено'); break;
       }
-
       case 'copyCode': {
-        try { await navigator.clipboard.writeText(S.classDoc.inviteCode); toast('Код скопирован', 'ok'); }
-        catch { toast('Не удалось скопировать', 'err'); }
-        break;
+        try { await navigator.clipboard.writeText(S.classDoc.inviteCode); toast('Код скопирован', 'ok'); } catch { toast('Не удалось скопировать', 'err'); } break;
       }
-
       case 'addMemberByEmail': {
         const inp = document.getElementById('addByEmail');
         const email = (inp?.value || '').trim().toLowerCase();
         if (!email) { toast('Введите email', 'err'); break; }
-        await handleAddMemberByEmail(email);
-        break;
+        await handleAddMemberByEmail(email); break;
       }
-
       case 'removeMember': {
         const id = el.dataset.id;
         if (!confirm(`Удалить ${el.dataset.name} из класса?`)) break;
@@ -1743,165 +1350,154 @@ document.addEventListener('click', async e => {
           await updateDoc(doc(db, 'users', id), { classId: null });
         } catch (err) {
           console.error(err);
-          toast('Не удалось удалить: ' + (err.code === 'permission-denied'
-            ? 'нет прав (проверьте правила Firestore)'
-            : err.message), 'err');
+          toast('Не удалось удалить: ' + (err.code === 'permission-denied' ? 'нет прав (проверьте правила Firestore)' : err.message), 'err');
           break;
         }
-        await loadClassData();
-        render();
-        toast('Ученик удалён');
-        break;
+        await loadClassData(); render(); toast('Ученик удалён'); break;
       }
-
       case 'addTask': await handleAddTask(); break;
-
       case 'viewTask': S.ui.viewTaskId = el.dataset.id; render(); break;
       case 'closeTaskView': S.ui.viewTaskId = null; render(); break;
-
       case 'saveLessonMaterial': await saveLessonMaterial(); break;
       case 'cancelEditLesson': S.ui.editLessonId = null; render(); break;
-      case 'editLessonMaterial':
-        S.ui.editLessonId = el.dataset.id;
-        S.ui.tab = 'lesson';
-        render();
-        break;
+      case 'editLessonMaterial': S.ui.editLessonId = el.dataset.id; S.ui.tab = 'lesson'; render(); break;
       case 'deleteLessonMaterial': await deleteLessonMaterial(el.dataset.id); break;
       case 'startLesson': await startLesson(el.dataset.id); break;
       case 'saveLessonGrade': await saveLessonGrade(el.dataset.studentId); break;
       case 'lessonPrev': await moveLesson(-1); break;
       case 'lessonNext': await moveLesson(1); break;
       case 'endLesson': await endLesson(); break;
-
       case 'delTask': {
         if (!confirm('Удалить задание из каталога? Уже выданные останутся.')) break;
         const id = el.dataset.id;
         const task = S.tasks.find(t => t.id === id);
         const path = task?.attachmentPath || task?.imagePath;
-        if (path) {
-          try { await supabase.storage.from(SUPABASE_BUCKET).remove([path]); }
-          catch (err) { console.warn('Не удалить вложение:', err); }
-        }
+        if (path) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([path]); } catch (err) { console.warn('Не удалить вложение:', err); } }
         await deleteDoc(doc(db, 'classes', S.classDoc.id, 'tasks', id));
-        await loadClassData();
-        render();
-        break;
+        await loadClassData(); render(); break;
       }
-
       case 'saveClassName': await handleSaveClassName(); break;
+      case 'saveUserName': {
+        const newName = (document.getElementById('userNameEdit')?.value || '').trim();
+        if (newName.length < 2) { toast('Имя должно быть не короче 2 символов', 'err'); break; }
+        await updateProfile(S.user, { displayName: newName });
+        await updateDoc(doc(db, 'users', S.user.uid), { name: newName });
+        S.profile.name = newName; render(); toast('Имя успешно обновлено', 'ok'); break;
+      }
+      case 'editUserName': {
+        const newName = prompt('Введите новое имя и фамилию:', S.profile.name);
+        if (!newName || newName.trim().length < 2) { toast('Имя должно быть не короче 2 символов', 'err'); break; }
+        const trimmedName = newName.trim();
+        await updateProfile(S.user, { displayName: trimmedName });
+        await updateDoc(doc(db, 'users', S.user.uid), { name: trimmedName });
+        S.profile.name = trimmedName; render(); toast('Имя успешно обновлено', 'ok'); break;
+      }
+      case 'deleteClass': {
+        if (!confirm('ВНИМАНИЕ: Это удалит класс, всех учеников, задания и оценки. Это действие необратимо! Продолжить?')) break;
+        toast('Удаление класса...');
+        const batch = writeBatch(db);
+        const membersSnap = await getDocs(collection(db, 'classes', S.classDoc.id, 'members'));
+        membersSnap.docs.forEach(d => batch.delete(d.ref));
+        const tasksSnap = await getDocs(collection(db, 'classes', S.classDoc.id, 'tasks'));
+        tasksSnap.docs.forEach(d => batch.delete(d.ref));
+        const matSnap = await getDocs(collection(db, 'classes', S.classDoc.id, 'lessonMaterials'));
+        matSnap.docs.forEach(d => batch.delete(d.ref));
+        batch.delete(doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current'));
+        const gradesSnap = await getDocs(collection(db, 'classes', S.classDoc.id, 'lessonGrades'));
+        gradesSnap.docs.forEach(d => batch.delete(d.ref));
+        const assignSnap = await getDocs(query(collection(db, 'assignments'), where('classId', '==', S.classDoc.id)));
+        assignSnap.docs.forEach(d => batch.delete(d.ref));
+        batch.delete(doc(db, 'classes', S.classDoc.id));
+        await batch.commit();
+        S.profile.classId = null;
+        await updateDoc(doc(db, 'users', S.user.uid), { classId: null });
+        await loadClassData(); render(true);
+        toast('Класс успешно удален', 'ok'); break;
+      }
       case 'studentLeaveClass': await handleStudentLeaveClass(); break;
-
       case 'leaveClass': {
         if (!confirm('Покинуть класс? Вы сможете создать новый.')) break;
         await updateDoc(doc(db, 'users', S.user.uid), { classId: null });
-        S.profile.classId = null;
-        await loadClassData();
-        render(true);
-        break;
+        S.profile.classId = null; await loadClassData(); render(true); break;
       }
-
       case 'saveDraft': await saveDraft(el.dataset.id); break;
       case 'submitAssignment': await submitAssignment(el.dataset.id); break;
       case 'reviewAssignment':
         if (S.profile?.role !== 'teacher') { toast('Проверять работы может только учитель', 'err'); break; }
-        S.ui.reviewAssignmentId = el.dataset.id;
-        render();
-        break;
-      case 'closeReview':
-        S.ui.reviewAssignmentId = null;
-        render();
-        break;
+        S.ui.reviewAssignmentId = el.dataset.id; render(); break;
+      case 'closeReview': S.ui.reviewAssignmentId = null; render(); break;
       case 'acceptWork': await saveReview(el.dataset.id, 'accepted'); break;
       case 'sendRevision': await saveReview(el.dataset.id, 'revision'); break;
+      case 'resetPassword': {
+        const email = document.getElementById('authEmail')?.value.trim();
+        if (!email) { toast('Введите email в поле выше для восстановления', 'err'); break; }
+        await sendPasswordResetEmail(auth, email);
+        toast('Письмо для восстановления пароля отправлено на ' + email, 'ok'); break;
+      }
+      case 'exportCSV': {
+        const headers = ['Ученик', 'Задание', 'Предмет', 'Статус', 'Оценка', 'Комментарий', 'Дата проверки'];
+        const rows = S.assignments.map(a => [
+          `"${(a.studentName || '').replace(/"/g, '""')}"`,
+          `"${(a.title || '').replace(/"/g, '""')}"`,
+          `"${(a.subject || '').replace(/"/g, '""')}"`,
+          a.reviewStatus === 'accepted' ? 'Принято' : a.reviewStatus === 'revision' ? 'На исправлении' : a.reviewStatus === 'pending' ? 'На проверке' : 'Не сдано',
+          a.grade != null ? a.grade : '',
+          `"${(a.teacherFeedback || '').replace(/"/g, '""')}"`,
+          a.reviewedAt ? fmtDate(a.reviewedAt) : ''
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Журнал_${S.classDoc.name}_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast('Журнал экспортирован', 'ok'); break;
+      }
     }
-  } catch (err) {
-    console.error(err);
-    toast(err.message || 'Ошибка', 'err');
-  }
+  } catch (err) { console.error(err); toast(err.message || 'Ошибка', 'err'); }
 });
 
 document.addEventListener('change', async e => {
   const el = e.target.closest('[data-change]');
   if (!el) return;
   const a = el.dataset.change;
-
   try {
     if (a === 'toggleStudent') {
-      const id = el.dataset.id;
-      el.checked ? S.ui.selStudents.add(id) : S.ui.selStudents.delete(id);
-      render();
-    }
-    else if (a === 'toggleTask') {
-      const id = el.value;
-      el.checked ? S.ui.selTasks.add(id) : S.ui.selTasks.delete(id);
-      render();
-    }
-    else if (a === 'setDeadline') {
+      const id = el.dataset.id; el.checked ? S.ui.selStudents.add(id) : S.ui.selStudents.delete(id); render();
+    } else if (a === 'toggleTask') {
+      const id = el.value; el.checked ? S.ui.selTasks.add(id) : S.ui.selTasks.delete(id); render();
+    } else if (a === 'setDeadline') {
       S.ui.deadline = el.value;
       const btn = document.querySelector('[data-action="createAssignments"]');
-      if (btn) {
-        const c = S.ui.selStudents.size * S.ui.selTasks.size;
-        btn.textContent = 'Разослать задания' + (c ? ` (${c})` : '');
-      }
-    }
-    else if (a === 'filterStudent') {
-      S.ui.filterStudent = el.value;
-      const tb = document.getElementById('assignTbody');
-      if (tb) tb.innerHTML = assignmentRows();
-    }
-    else if (a === 'filterStatus') {
-      S.ui.filterStatus = el.value;
-      const tb = document.getElementById('assignTbody');
-      if (tb) tb.innerHTML = assignmentRows();
-    }
-    else if (a === 'uploadFile') {
-      await uploadHomeworkFile(el.dataset.id, el);
-    }
+      if (btn) { const c = S.ui.selStudents.size * S.ui.selTasks.size; btn.textContent = 'Разослать задания' + (c ? ` (${c})` : ''); }
+    } else if (a === 'filterStudent') {
+      S.ui.filterStudent = el.value; const tb = document.getElementById('assignTbody'); if (tb) tb.innerHTML = assignmentRows();
+    } else if (a === 'filterStatus') {
+      S.ui.filterStatus = el.value; const tb = document.getElementById('assignTbody'); if (tb) tb.innerHTML = assignmentRows();
+    } else if (a === 'uploadFile') { await uploadHomeworkFile(el.dataset.id, el); }
     else if (a === 'lessonFilePicked') {
-      const file = el.files?.[0];
-      const label = document.getElementById('lessonFileLabel');
-      const text = document.getElementById('lessonFileLabelText');
-      if (file && file.size > 50 * 1024 * 1024) {
-        toast('Файл больше 50 МБ', 'err');
-        el.value = '';
-        if (text) text.textContent = 'Прикрепить файл к уроку';
-        if (label) label.classList.remove('has-file');
-      } else if (file) {
-        if (text) text.textContent = file.name;
-        if (label) label.classList.add('has-file');
-      }
+      const file = el.files?.[0]; const label = document.getElementById('lessonFileLabel'); const text = document.getElementById('lessonFileLabelText');
+      if (file && file.size > 50 * 1024 * 1024) { toast('Файл больше 50 МБ', 'err'); el.value = ''; if (text) text.textContent = 'Прикрепить файл к уроку'; if (label) label.classList.remove('has-file'); }
+      else if (file) { if (text) text.textContent = file.name; if (label) label.classList.add('has-file'); }
     }
-  } catch (err) {
-    console.error(err);
-    toast(err.message || 'Ошибка', 'err');
-  }
+  } catch (err) { console.error(err); toast(err.message || 'Ошибка', 'err'); }
 });
 
-/* Подсветка кнопки «Прикрепить файл» в каталоге */
 document.addEventListener('change', e => {
   if (e.target.id === 'newTaskFile') {
-    const label = document.getElementById('newTaskFileLabel');
-    if (!label) return;
+    const label = document.getElementById('newTaskFileLabel'); if (!label) return;
     const file = e.target.files?.[0];
-    if (file) {
-      label.innerHTML = `✅ ${esc(file.name)}`;
-      label.classList.add('has-file');
-      label.appendChild(e.target);
-      e.target.style.display = 'none';
-    }
+    if (file) { label.innerHTML = `✅ ${esc(file.name)}`; label.classList.add('has-file'); label.appendChild(e.target); e.target.style.display = 'none'; }
   }
 });
 
 document.addEventListener('input', e => {
-  if (e.target.id === 'searchInput') {
-    S.ui.search = e.target.value;
-    const tb = document.getElementById('assignTbody');
-    if (tb) tb.innerHTML = assignmentRows();
-  }
+  if (e.target.id === 'searchInput') { S.ui.search = e.target.value; const tb = document.getElementById('assignTbody'); if (tb) tb.innerHTML = assignmentRows(); }
 });
 
 document.addEventListener('keydown', e => {
-  // Escape закрывает любую открытую модалку.
   if (e.key === 'Escape') {
     let changed = false;
     if (S.ui.reviewAssignmentId) { S.ui.reviewAssignmentId = null; changed = true; }
@@ -1909,69 +1505,33 @@ document.addEventListener('keydown', e => {
     if (changed) { render(); return; }
   }
   if (e.key !== 'Enter') return;
-  if (e.target.id === 'authPass' || e.target.id === 'authEmail') {
-    document.querySelector('[data-action="authSubmit"]')?.click();
-  }
-  if (e.target.id === 'inviteCode') {
-    document.querySelector('[data-action="joinClass"]')?.click();
-  }
-  if (e.target.id === 'className') {
-    document.querySelector('[data-action="createClass"]')?.click();
-  }
-  if (e.target.id === 'addByEmail') {
-    document.querySelector('[data-action="addMemberByEmail"]')?.click();
-  }
-  if (e.target.id === 'classNameEdit') {
-    document.querySelector('[data-action="saveClassName"]')?.click();
-  }
+  if (e.target.id === 'authPass' || e.target.id === 'authEmail') document.querySelector('[data-action="authSubmit"]')?.click();
+  if (e.target.id === 'inviteCode') document.querySelector('[data-action="joinClass"]')?.click();
+  if (e.target.id === 'className') document.querySelector('[data-action="createClass"]')?.click();
+  if (e.target.id === 'addByEmail') document.querySelector('[data-action="addMemberByEmail"]')?.click();
+  if (e.target.id === 'classNameEdit') document.querySelector('[data-action="saveClassName"]')?.click();
 });
 
-/* ============================================================
-   БИЗНЕС-ЛОГИКА
-   ============================================================ */
 async function handleCreateAssignments() {
   if (!S.ui.selStudents.size) { toast('Выберите учеников', 'err'); return; }
-  if (!S.ui.selTasks.size)    { toast('Выберите задания', 'err'); return; }
-
-  const batch = writeBatch(db);
-  let n = 0;
-
+  if (!S.ui.selTasks.size) { toast('Выберите задания', 'err'); return; }
+  const batch = writeBatch(db); let n = 0;
   S.ui.selStudents.forEach(sid => {
-    const m = S.members.find(x => x.id === sid);
-    if (!m) return;
+    const m = S.members.find(x => x.id === sid); if (!m) return;
     S.ui.selTasks.forEach(tid => {
-      const t = S.tasks.find(x => x.id === tid);
-      if (!t) return;
+      const t = S.tasks.find(x => x.id === tid); if (!t) return;
       const ref = doc(collection(db, 'assignments'));
       batch.set(ref, {
-        classId: S.classDoc.id,
-        studentId: sid,
-        studentName: m.name,
-        taskId: tid,
-        title: t.title, subject: t.subject, desc: t.desc || '',
-        attachmentUrl:  t.attachmentUrl  || t.imageUrl  || null,
-        attachmentPath: t.attachmentPath || t.imagePath || null,
-        attachmentName: t.attachmentName || null,
-        attachmentType: t.attachmentType || (t.imageUrl ? 'image' : null),
-        deadline: S.ui.deadline || '',
-        done: false, doneAt: null,
-        reviewStatus: 'notSubmitted', submittedAt: null, reviewedAt: null,
-        grade: null, teacherFeedback: '', errors: '',
-        fileUrl: null, fileName: null, filePath: null,
-        answerText: '',
-        teacherId: S.user.uid, teacherName: S.profile.name,
-        createdAt: Date.now()
-      });
-      n++;
+        classId: S.classDoc.id, studentId: sid, studentName: m.name, taskId: tid, title: t.title, subject: t.subject, desc: t.desc || '',
+        attachmentUrl: t.attachmentUrl || t.imageUrl || null, attachmentPath: t.attachmentPath || t.imagePath || null,
+        attachmentName: t.attachmentName || null, attachmentType: t.attachmentType || (t.imageUrl ? 'image' : null),
+        deadline: S.ui.deadline || '', done: false, doneAt: null, reviewStatus: 'notSubmitted', submittedAt: null, reviewedAt: null,
+        grade: null, teacherFeedback: '', errors: '', fileUrl: null, fileName: null, filePath: null, answerText: '',
+        teacherId: S.user.uid, teacherName: S.profile.name, createdAt: Date.now()
+      }); n++;
     });
   });
-
-  await batch.commit();
-  S.ui.selStudents.clear();
-  S.ui.selTasks.clear();
-  S.ui.deadline = '';
-  S.ui.tab = 'submissions';
-  render(true);
+  await batch.commit(); S.ui.selStudents.clear(); S.ui.selTasks.clear(); S.ui.deadline = ''; S.ui.tab = 'submissions'; render(true);
   toast(`Отправлено заданий: ${n}`, 'ok');
 }
 
@@ -1984,82 +1544,42 @@ async function saveLessonMaterial() {
   const items = rawItems.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const file = document.getElementById('lessonFile')?.files?.[0] || null;
   const editing = S.ui.editLessonId ? S.lessonMaterials.find(x => x.id === S.ui.editLessonId) : null;
-
   if (title.length < 2) { toast('Введите название урока', 'err'); return; }
   if (!items.length) { toast('Добавьте хотя бы одно задание', 'err'); return; }
   if (items.length > 40) { toast('В одной заготовке может быть не больше 40 заданий', 'err'); return; }
   if (items.some(x => x.length > 2000)) { toast('Одно задание не должно превышать 2000 символов', 'err'); return; }
   if (file && file.size > 50 * 1024 * 1024) { toast('Файл больше 50 МБ', 'err'); return; }
-
-  const materialRef = editing
-    ? doc(db, 'classes', S.classDoc.id, 'lessonMaterials', editing.id)
-    : doc(collection(db, 'classes', S.classDoc.id, 'lessonMaterials'));
-  let attachmentUrl = editing?.attachmentUrl || null;
-  let attachmentPath = editing?.attachmentPath || null;
-  let attachmentName = editing?.attachmentName || null;
-  let attachmentType = editing?.attachmentType || null;
-
+  const materialRef = editing ? doc(db, 'classes', S.classDoc.id, 'lessonMaterials', editing.id) : doc(collection(db, 'classes', S.classDoc.id, 'lessonMaterials'));
+  let attachmentUrl = editing?.attachmentUrl || null, attachmentPath = editing?.attachmentPath || null, attachmentName = editing?.attachmentName || null, attachmentType = editing?.attachmentType || null;
   if (file) {
     try {
       toast('Загружаю файл к уроку…');
       const safeName = file.name.replace(/[^\w.\-А-Яа-яЁё]/g, '_');
       const path = `tasks/${S.classDoc.id}/lessonMaterials/${materialRef.id}/${Date.now()}_${safeName}`;
-      const { error: upErr } = await supabase.storage.from(SUPABASE_BUCKET)
-        .upload(path, file, { cacheControl: '3600', upsert: false });
+      const { error: upErr } = await supabase.storage.from(SUPABASE_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
-      attachmentUrl = urlData.publicUrl;
-      attachmentPath = path;
-      attachmentName = file.name;
-      attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
-    } catch (err) {
-      console.error(err);
-      toast('Ошибка загрузки файла: ' + (err.message || err), 'err');
-      return;
-    }
+      attachmentUrl = urlData.publicUrl; attachmentPath = path; attachmentName = file.name; attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
+    } catch (err) { console.error(err); toast('Ошибка загрузки файла: ' + (err.message || err), 'err'); return; }
   }
-
-  const now = Date.now();
-  const payload = {
-    title, subject, description, items,
-    attachmentUrl, attachmentPath, attachmentName, attachmentType,
-    updatedAt: now, updatedBy: S.user.uid
-  };
+  const now = Date.now(); const payload = { title, subject, description, items, attachmentUrl, attachmentPath, attachmentName, attachmentType, updatedAt: now, updatedBy: S.user.uid };
   try {
     if (editing) {
       await updateDoc(materialRef, payload);
-      if (file && editing.attachmentPath && editing.attachmentPath !== attachmentPath) {
-        try { await supabase.storage.from(SUPABASE_BUCKET).remove([editing.attachmentPath]); }
-        catch (err) { console.warn('Не удалось удалить старое вложение:', err); }
-      }
+      if (file && editing.attachmentPath && editing.attachmentPath !== attachmentPath) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([editing.attachmentPath]); } catch (err) { console.warn('Не удалось удалить старое вложение:', err); } }
       toast('Заготовка обновлена', 'ok');
-    } else {
-      await setDoc(materialRef, { ...payload, createdAt: now, createdBy: S.user.uid });
-      toast('Заготовка сохранена', 'ok');
-    }
-  } catch (err) {
-    if (file && attachmentPath) {
-      try { await supabase.storage.from(SUPABASE_BUCKET).remove([attachmentPath]); } catch (_) {}
-    }
-    throw err;
-  }
-  S.ui.editLessonId = null;
-  render();
+    } else { await setDoc(materialRef, { ...payload, createdAt: now, createdBy: S.user.uid }); toast('Заготовка сохранена', 'ok'); }
+  } catch (err) { if (file && attachmentPath) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([attachmentPath]); } catch (_) {} } throw err; }
+  S.ui.editLessonId = null; render();
 }
 
 async function deleteLessonMaterial(id) {
   if (S.profile?.role !== 'teacher' || !S.classDoc) throw new Error('Нет прав на удаление заготовки');
-  const material = S.lessonMaterials.find(x => x.id === id);
-  if (!material) return;
+  const material = S.lessonMaterials.find(x => x.id === id); if (!material) return;
   if (!confirm(`Удалить заготовку «${material.title}»?`)) return;
   await deleteDoc(doc(db, 'classes', S.classDoc.id, 'lessonMaterials', id));
-  if (material.attachmentPath && material.attachmentPath !== S.activeLesson?.attachmentPath) {
-    try { await supabase.storage.from(SUPABASE_BUCKET).remove([material.attachmentPath]); }
-    catch (err) { console.warn('Не удалось удалить вложение заготовки:', err); }
-  }
-  if (S.ui.editLessonId === id) S.ui.editLessonId = null;
-  render();
-  toast('Заготовка удалена');
+  if (material.attachmentPath && material.attachmentPath !== S.activeLesson?.attachmentPath) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([material.attachmentPath]); } catch (err) { console.warn('Не удалось удалить вложение заготовки:', err); } }
+  if (S.ui.editLessonId === id) S.ui.editLessonId = null; render(); toast('Заготовка удалена');
 }
 
 async function startLesson(id) {
@@ -2068,327 +1588,142 @@ async function startLesson(id) {
   if (!material || !Array.isArray(material.items) || !material.items.length) throw new Error('Заготовка не найдена или в ней нет заданий');
   const liveRef = doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current');
   const runId = doc(collection(db, 'classes', S.classDoc.id, 'lessonGrades')).id;
-  await setDoc(liveRef, {
-    active: true,
-    runId,
-    materialId: material.id,
-    title: material.title,
-    subject: material.subject || '',
-    description: material.description || '',
-    items: material.items,
-    attachmentUrl: material.attachmentUrl || null,
-    attachmentPath: material.attachmentPath || null,
-    attachmentName: material.attachmentName || null,
-    attachmentType: material.attachmentType || null,
-    activeIndex: 0,
-    teacherId: S.user.uid,
-    teacherName: S.profile.name || '',
-    startedAt: Date.now(),
-    updatedAt: Date.now()
-  });
-  S.ui.editLessonId = null;
-  S.ui.tab = 'lesson';
-  render(true);
-  toast('Урок запущен — первое задание показано ученикам', 'ok');
+  await setDoc(liveRef, { active: true, runId, materialId: material.id, title: material.title, subject: material.subject || '', description: material.description || '', items: material.items, attachmentUrl: material.attachmentUrl || null, attachmentPath: material.attachmentPath || null, attachmentName: material.attachmentName || null, attachmentType: material.attachmentType || null, activeIndex: 0, teacherId: S.user.uid, teacherName: S.profile.name || '', startedAt: Date.now(), updatedAt: Date.now() });
+  S.ui.editLessonId = null; S.ui.tab = 'lesson'; render(true); toast('Урок запущен — первое задание показано ученикам', 'ok');
 }
 
 async function saveLessonGrade(studentId) {
   const lesson = S.activeLesson;
-  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.runId || lesson.teacherId !== S.user.uid) {
-    throw new Error('Оценки может выставлять только учитель этого урока');
-  }
-  const member = S.members.find(m => m.id === studentId);
-  if (!member) throw new Error('Ученик не найден в вашем классе');
+  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.runId || lesson.teacherId !== S.user.uid) throw new Error('Оценки может выставлять только учитель этого урока');
+  const member = S.members.find(m => m.id === studentId); if (!member) throw new Error('Ученик не найден в вашем классе');
   const lessonSelect = document.querySelector(`[data-lesson-grade="lesson"][data-student-id="${CSS.escape(studentId)}"]`);
   const behaviorSelect = document.querySelector(`[data-lesson-grade="behavior"][data-student-id="${CSS.escape(studentId)}"]`);
   const commentInput = document.querySelector(`[data-lesson-grade-comment][data-student-id="${CSS.escape(studentId)}"]`);
-  const lessonRaw = lessonSelect?.value || '';
-  const behaviorRaw = behaviorSelect?.value || '';
-  const lessonGrade = lessonRaw === '' ? null : Number(lessonRaw);
-  const behaviorGrade = behaviorRaw === '' ? null : Number(behaviorRaw);
+  const lessonRaw = lessonSelect?.value || '', behaviorRaw = behaviorSelect?.value || '';
+  const lessonGrade = lessonRaw === '' ? null : Number(lessonRaw), behaviorGrade = behaviorRaw === '' ? null : Number(behaviorRaw);
   const comment = (commentInput?.value || '').trim();
-
-  for (const grade of [lessonGrade, behaviorGrade]) {
-    if (grade !== null && (!Number.isInteger(grade) || grade < 1 || grade > 5)) {
-      throw new Error('Оценки должны быть целыми числами от 1 до 5');
-    }
-  }
-
-  const gradeId = `${lesson.runId}_${studentId}`;
-  const gradeRef = doc(db, 'classes', S.classDoc.id, 'lessonGrades', gradeId);
+  for (const grade of [lessonGrade, behaviorGrade]) { if (grade !== null && (!Number.isInteger(grade) || grade < 1 || grade > 5)) throw new Error('Оценки должны быть целыми числами от 1 до 5'); }
+  const gradeId = `${lesson.runId}_${studentId}`; const gradeRef = doc(db, 'classes', S.classDoc.id, 'lessonGrades', gradeId);
   const existing = S.lessonGrades.find(g => g.id === gradeId);
-  if (lessonGrade === null && behaviorGrade === null && !comment) {
-    if (existing) await deleteDoc(gradeRef);
-    toast('Оценки очищены');
-    return;
-  }
+  if (lessonGrade === null && behaviorGrade === null && !comment) { if (existing) await deleteDoc(gradeRef); toast('Оценки очищены'); return; }
   const now = Date.now();
-  await setDoc(gradeRef, {
-    runId: lesson.runId,
-    materialId: lesson.materialId || null,
-    lessonTitle: lesson.title || 'Урок',
-    lessonSubject: lesson.subject || '',
-    studentId,
-    studentName: member.name || '',
-    lessonGrade,
-    behaviorGrade,
-    comment,
-    teacherId: S.user.uid,
-    startedAt: lesson.startedAt || null,
-    updatedAt: now
-  });
+  await setDoc(gradeRef, { runId: lesson.runId, materialId: lesson.materialId || null, lessonTitle: lesson.title || 'Урок', lessonSubject: lesson.subject || '', studentId, studentName: member.name || '', lessonGrade, behaviorGrade, comment, teacherId: S.user.uid, startedAt: lesson.startedAt || null, updatedAt: now });
   toast('Оценки сохранены', 'ok');
 }
 
 async function moveLesson(direction) {
   const lesson = S.activeLesson;
-  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.active || lesson.teacherId !== S.user.uid) {
-    throw new Error('Активный урок не найден');
-  }
-  const max = (lesson.items || []).length - 1;
-  const next = Math.max(0, Math.min(max, (Number(lesson.activeIndex) || 0) + direction));
+  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.active || lesson.teacherId !== S.user.uid) throw new Error('Активный урок не найден');
+  const max = (lesson.items || []).length - 1; const next = Math.max(0, Math.min(max, (Number(lesson.activeIndex) || 0) + direction));
   if (next === lesson.activeIndex) return;
-  await updateDoc(doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current'), {
-    activeIndex: next, updatedAt: Date.now()
-  });
+  await updateDoc(doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current'), { activeIndex: next, updatedAt: Date.now() });
 }
 
 async function endLesson() {
   const lesson = S.activeLesson;
-  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.active || lesson.teacherId !== S.user.uid) {
-    throw new Error('Активный урок не найден');
-  }
+  if (S.profile?.role !== 'teacher' || !S.classDoc || !lesson?.active || lesson.teacherId !== S.user.uid) throw new Error('Активный урок не найден');
   if (!confirm('Завершить урок? Текущий вопрос исчезнет из кабинетов учеников.')) return;
-  await updateDoc(doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current'), {
-    active: false, endedAt: Date.now(), updatedAt: Date.now()
-  });
+  await updateDoc(doc(db, 'classes', S.classDoc.id, 'lessonLive', 'current'), { active: false, endedAt: Date.now(), updatedAt: Date.now() });
   toast('Урок завершён', 'ok');
 }
 
 async function handleAddTask() {
-  const title   = (document.getElementById('newTaskTitle').value || '').trim();
+  const title = (document.getElementById('newTaskTitle').value || '').trim();
   const subject = (document.getElementById('newTaskSubject').value || '').trim() || 'Без предмета';
-  const desc    = (document.getElementById('newTaskDesc').value || '').trim();
-  const fileInput = document.getElementById('newTaskFile');
-  const file = fileInput?.files?.[0];
-
+  const desc = (document.getElementById('newTaskDesc').value || '').trim();
+  const fileInput = document.getElementById('newTaskFile'); const file = fileInput?.files?.[0];
   if (title.length < 2) { toast('Введите название', 'err'); return; }
-
-  const taskRef = doc(collection(db, 'classes', S.classDoc.id, 'tasks'));
-  const taskId = taskRef.id;
-
+  const taskRef = doc(collection(db, 'classes', S.classDoc.id, 'tasks')); const taskId = taskRef.id;
   let attachmentUrl = null, attachmentPath = null, attachmentName = null, attachmentType = null;
-
   if (file) {
     if (file.size > 50 * 1024 * 1024) { toast('Файл больше 50 МБ', 'err'); return; }
     try {
       toast('Загрузка файла…');
       const safeName = file.name.replace(/[^\w.\-А-Яа-яЁё]/g, '_');
       const path = `tasks/${S.classDoc.id}/${taskId}/${Date.now()}_${safeName}`;
-      const { error: upErr } = await supabase.storage
-        .from(SUPABASE_BUCKET)
-        .upload(path, file, { cacheControl: '3600', upsert: false });
+      const { error: upErr } = await supabase.storage.from(SUPABASE_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
       if (upErr) throw upErr;
-
       const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
-      attachmentUrl  = urlData.publicUrl;
-      attachmentPath = path;
-      attachmentName = file.name;
-      attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
-    } catch (err) {
-      console.error(err);
-      toast('Ошибка загрузки: ' + (err.message || err), 'err');
-      return;
-    }
+      attachmentUrl = urlData.publicUrl; attachmentPath = path; attachmentName = file.name; attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
+    } catch (err) { console.error(err); toast('Ошибка загрузки: ' + (err.message || err), 'err'); return; }
   }
-
-  await setDoc(taskRef, {
-    title, subject, desc,
-    attachmentUrl, attachmentPath, attachmentName, attachmentType,
-    createdAt: Date.now()
-  });
-
-  await loadClassData();
-  render();
-  toast('Задание добавлено', 'ok');
+  await setDoc(taskRef, { title, subject, desc, attachmentUrl, attachmentPath, attachmentName, attachmentType, createdAt: Date.now() });
+  await loadClassData(); render(); toast('Задание добавлено', 'ok');
 }
 
 async function handleAddMemberByEmail(email) {
-  const snap = await getDocs(query(
-    collection(db, 'users'),
-    where('email', '==', email),
-    where('role', '==', 'student')
-  ));
+  const snap = await getDocs(query(collection(db, 'users'), where('email', '==', email), where('role', '==', 'student')));
   if (snap.empty) { toast('Ученик с таким email не найден', 'err'); return; }
-
-  const studentDoc = snap.docs[0];
-  const sd = studentDoc.data();
+  const studentDoc = snap.docs[0]; const sd = studentDoc.data();
   if (sd.classId) { toast('Ученик уже состоит в классе', 'err'); return; }
-
-  await setDoc(doc(db, 'classes', S.classDoc.id, 'members', studentDoc.id), {
-    name: sd.name, email: sd.email, joinedAt: Date.now()
-  });
+  await setDoc(doc(db, 'classes', S.classDoc.id, 'members', studentDoc.id), { name: sd.name, email: sd.email, joinedAt: Date.now() });
   await updateDoc(doc(db, 'users', studentDoc.id), { classId: S.classDoc.id });
-  await loadClassData();
-  render();
-  toast('Ученик добавлен в класс', 'ok');
+  await loadClassData(); render(); toast('Ученик добавлен в класс', 'ok');
 }
 
-/* ============================================================
-   УЧЕНИК — выход из класса
-   ============================================================ */
 async function handleStudentLeaveClass() {
   if (!confirm('Покинуть класс? Вы сможете вернуться по коду-приглашению.')) return;
   try {
     await deleteDoc(doc(db, 'classes', S.classDoc.id, 'members', S.user.uid));
     await updateDoc(doc(db, 'users', S.user.uid), { classId: null });
-    S.profile.classId = null;
-    await loadClassData();
-    render(true);
-    toast('Вы покинули класс');
-  } catch (err) {
-    console.error(err);
-    toast('Ошибка: ' + (err.message || err), 'err');
-  }
+    S.profile.classId = null; await loadClassData(); render(true); toast('Вы покинули класс');
+  } catch (err) { console.error(err); toast('Ошибка: ' + (err.message || err), 'err'); }
 }
 
-/* ============================================================
-   ЗАГРУЗКА ДОМАШКИ УЧЕНИКА
-   ============================================================ */
 async function uploadHomeworkFile(assignmentId, inputEl) {
-  const file = inputEl?.files?.[0];
-  if (!file) return;
-
-  if (file.size > 50 * 1024 * 1024) {
-    toast('Файл больше 50 МБ', 'err');
-    inputEl.value = '';
-    return;
-  }
-
+  const file = inputEl?.files?.[0]; if (!file) return;
+  if (file.size > 50 * 1024 * 1024) { toast('Файл больше 50 МБ', 'err'); inputEl.value = ''; return; }
   const assign = S.assignments.find(a => a.id === assignmentId);
-  if (!assign || S.profile?.role !== 'student' || assign.studentId !== S.user.uid) {
-    throw new Error('Задание не найдено');
-  }
-  if (isAccepted(assign) || isUnderReview(assign)) {
-    toast('Сейчас нельзя менять файл этой работы', 'err');
-    inputEl.value = '';
-    return;
-  }
-
+  if (!assign || S.profile?.role !== 'student' || assign.studentId !== S.user.uid) throw new Error('Задание не найдено');
+  if (isAccepted(assign) || isUnderReview(assign)) { toast('Сейчас нельзя менять файл этой работы', 'err'); inputEl.value = ''; return; }
   try {
     toast('Загрузка файла…');
-
     const safeName = file.name.replace(/[^\w.\-А-Яа-яЁё]/g, '_');
     const path = `${S.classDoc.id}/${assignmentId}/${Date.now()}_${safeName}`;
     const oldPath = assign.filePath;
-
-    const { error: upErr } = await supabase.storage
-      .from(SUPABASE_BUCKET)
-      .upload(path, file, { cacheControl: '3600', upsert: false });
+    const { error: upErr } = await supabase.storage.from(SUPABASE_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
     if (upErr) throw upErr;
-
     const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
-
-    await updateDoc(doc(db, 'assignments', assignmentId), {
-      fileUrl: urlData.publicUrl,
-      fileName: file.name,
-      filePath: path,
-      fileUploadedAt: Date.now()
-    });
-
-    if (oldPath) {
-      try { await supabase.storage.from(SUPABASE_BUCKET).remove([oldPath]); }
-      catch (err) { console.warn('Не удалось удалить предыдущий файл:', err); }
-    }
-
+    await updateDoc(doc(db, 'assignments', assignmentId), { fileUrl: urlData.publicUrl, fileName: file.name, filePath: path, fileUploadedAt: Date.now() });
+    if (oldPath) { try { await supabase.storage.from(SUPABASE_BUCKET).remove([oldPath]); } catch (err) { console.warn('Не удалось удалить предыдущий файл:', err); } }
     toast('Файл прикреплён', 'ok');
-  } catch (err) {
-    console.error(err);
-    toast('Ошибка загрузки: ' + (err.message || err), 'err');
-  } finally {
-    inputEl.value = '';
-  }
+  } catch (err) { console.error(err); toast('Ошибка загрузки: ' + (err.message || err), 'err'); } finally { inputEl.value = ''; }
 }
 
 async function saveDraft(id) {
-  const assign = S.assignments.find(a => a.id === id);
-  if (!assign || assign.studentId !== S.user.uid) return;
-
+  const assign = S.assignments.find(a => a.id === id); if (!assign || assign.studentId !== S.user.uid) return;
   const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
   const answerText = textArea ? textArea.value.trim() : '';
-
-  await updateDoc(doc(db, 'assignments', id), {
-    answerText: answerText
-  });
+  await updateDoc(doc(db, 'assignments', id), { answerText: answerText });
   toast('Черновик сохранен', 'ok');
 }
 
 async function submitAssignment(id) {
-  const assign = S.assignments.find(a => a.id === id);
-  if (!assign || assign.studentId !== S.user.uid) throw new Error('Задание не найдено');
-
+  const assign = S.assignments.find(a => a.id === id); if (!assign || assign.studentId !== S.user.uid) throw new Error('Задание не найдено');
   const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
   const answerText = textArea ? textArea.value.trim() : '';
-
-  if (!assign.fileUrl && !answerText) {
-    toast('Добавьте текст ответа или прикрепите файл перед отправкой', 'err');
-    return;
-  }
+  if (!assign.fileUrl && !answerText) { toast('Добавьте текст ответа или прикрепите файл перед отправкой', 'err'); return; }
   if (isUnderReview(assign)) { toast('Работа уже находится на проверке'); return; }
   if (isAccepted(assign)) { toast('Работа уже принята учителем'); return; }
-
-  await updateDoc(doc(db, 'assignments', id), {
-    reviewStatus: 'pending',
-    answerText: answerText,
-    submittedAt: Date.now(),
-    submissionAttempt: (Number(assign.submissionAttempt) || 0) + 1
-  });
+  await updateDoc(doc(db, 'assignments', id), { reviewStatus: 'pending', answerText: answerText, submittedAt: Date.now(), submissionAttempt: (Number(assign.submissionAttempt) || 0) + 1 });
   toast('Работа отправлена учителю на проверку', 'ok');
 }
 
 async function saveReview(id, decision) {
   if (S.profile?.role !== 'teacher' || !S.classDoc) throw new Error('Нет прав на проверку работ');
   const assign = S.assignments.find(a => a.id === id);
-  if (!assign || assign.classId !== S.classDoc.id || assign.teacherId !== S.user.uid) {
-    throw new Error('Работа не найдена в вашем классе');
-  }
-
-  if (!hasBeenSubmitted(assign) || (!assign.fileUrl && !assign.answerText && !isAccepted(assign))) {
-    throw new Error('У ученика нет отправленной работы для проверки (нет ни файла, ни текста)');
-  }
-
+  if (!assign || assign.classId !== S.classDoc.id || assign.teacherId !== S.user.uid) throw new Error('Работа не найдена в вашем классе');
+  if (!hasBeenSubmitted(assign) || (!assign.fileUrl && !assign.answerText && !isAccepted(assign))) throw new Error('У ученика нет отправленной работы для проверки (нет ни файла, ни текста)');
   const gradeRaw = (document.getElementById('reviewGrade')?.value || '').trim();
   const grade = gradeRaw === '' ? null : Number(gradeRaw);
   const teacherFeedback = (document.getElementById('reviewFeedback')?.value || '').trim();
   const errors = (document.getElementById('reviewErrors')?.value || '').trim();
-
-  if (grade !== null && (!Number.isInteger(grade) || grade < 1 || grade > 5)) {
-    toast('Оценка должна быть целым числом от 1 до 5', 'err');
-    return;
-  }
-  if (decision === 'accepted' && grade === null) {
-    toast('Поставьте оценку перед принятием работы', 'err');
-    return;
-  }
-  if (decision === 'revision' && !teacherFeedback && !errors) {
-    toast('Напишите комментарий или перечислите ошибки, чтобы ученик понял, что исправить', 'err');
-    return;
-  }
-
+  if (grade !== null && (!Number.isInteger(grade) || grade < 1 || grade > 5)) { toast('Оценка должна быть целым числом от 1 до 5', 'err'); return; }
+  if (decision === 'accepted' && grade === null) { toast('Поставьте оценку перед принятием работы', 'err'); return; }
+  if (decision === 'revision' && !teacherFeedback && !errors) { toast('Напишите комментарий или перечислите ошибки, чтобы ученик понял, что исправить', 'err'); return; }
   const now = Date.now();
-  await updateDoc(doc(db, 'assignments', id), {
-    reviewStatus: decision,
-    grade,
-    teacherFeedback,
-    errors,
-    reviewedAt: now,
-    reviewedBy: S.user.uid,
-    done: decision === 'accepted',
-    doneAt: decision === 'accepted' ? now : null
-  });
-
-  S.ui.reviewAssignmentId = null;
-  render();
+  await updateDoc(doc(db, 'assignments', id), { reviewStatus: decision, grade, teacherFeedback, errors, reviewedAt: now, reviewedBy: S.user.uid, done: decision === 'accepted', doneAt: decision === 'accepted' ? now : null });
+  S.ui.reviewAssignmentId = null; render();
   toast(decision === 'accepted' ? 'Работа принята, оценка сохранена' : 'Работа возвращена на исправление', 'ok');
 }
 </script>
