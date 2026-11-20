@@ -225,21 +225,24 @@ input:focus, select:focus, textarea:focus {
 }
 @media (max-width: 720px) { .filters { grid-template-columns: 1fr; } }
 .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--line); }
-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; }
+/* ИСПРАВЛЕНО: table-layout: fixed вместо min-width:720px — таблица всегда влезает в экран */
+table { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
 th {
-  text-align: left; padding: 12px 14px; background: #f7f9fe;
+  text-align: left; padding: 11px 12px; background: #f7f9fe;
   font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
   color: var(--muted); font-weight: 700;
   border-bottom: 1px solid var(--line); white-space: nowrap;
 }
 td {
-  padding: 13px 14px; border-bottom: 1px solid #f0f3fa;
+  padding: 12px; border-bottom: 1px solid #f0f3fa;
   vertical-align: middle;
 }
 tr:last-child td { border-bottom: none; }
 tr.is-done td { background: #fbfefc; }
 tr:hover td { background: #fafbff; }
 .empty { text-align: center; color: var(--muted); padding: 34px 14px !important; }
+/* ИСПРАВЛЕНО: утилита для сокращения длинных названий с многоточием */
+.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 /* ============ BADGES / PROGRESS ============ */
 .badge {
@@ -276,7 +279,7 @@ tr:hover td { background: #fafbff; }
 .acard.done { border-left-color: var(--ok); background: #fbfefc; }
 .acard.overdue { border-left-color: var(--danger); }
 .acard.revision { border-left-color: var(--warn); background: #fff8e6; }
-.acard .title { font-weight: 700; font-size: 16px; margin-bottom: 3px; }
+.acard .title { font-weight: 700; font-size: 16px; margin-bottom: 3px; overflow-wrap: anywhere; }
 .acard .meta {
   display: flex; gap: 8px; flex-wrap: wrap;
   margin-top: 10px; align-items: center;
@@ -288,6 +291,7 @@ tr:hover td { background: #fafbff; }
   background: #f4f6ff; border: 1px dashed #c7d3f5;
   border-radius: 12px; padding: 12px 14px;
   font-size: 13.5px; color: #4a5680;
+  overflow-wrap: anywhere;
 }
 .review-result {
   margin-top: 14px; padding: 13px 15px; border: 1px solid var(--line);
@@ -301,11 +305,13 @@ tr:hover td { background: #fafbff; }
   display: grid; place-items: center; padding: 18px; overflow-y: auto;
 }
 .modal-card {
-  width: min(100%, 620px); max-height: calc(100vh - 36px); overflow-y: auto;
+  width: min(100%, 620px); min-width: 0; /* ИСПРАВЛЕНО: min-width:0 — длинное слово не растягивает карточку */
+  max-height: calc(100vh - 36px); overflow-y: auto;
   background: var(--card); color: var(--ink); border: 1px solid var(--line);
   border-radius: 18px; padding: 22px; box-shadow: 0 24px 80px rgba(0, 0, 0, .28);
 }
 .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.modal-head > div:first-child { min-width: 0; }
 .modal-close {
   flex: 0 0 auto; width: 34px; height: 34px; border: 0; border-radius: 10px;
   background: #eef1f9; color: var(--ink); cursor: pointer; font-size: 20px;
@@ -528,6 +534,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const ICON_ATTACH = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
 const ICON_PLUS = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 const ICON_FILE = `<svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+const ICON_EYE = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 
 /* ============================================================
    ТЕМА
@@ -569,7 +576,7 @@ const S = {
     authMode: 'login', authRole: 'teacher', tab: 'assign',
     selStudents: new Set(), selTasks: new Set(), deadline: '',
     search: '', filterStudent: '', filterStatus: '', reviewAssignmentId: null,
-    editLessonId: null
+    editLessonId: null, viewTaskId: null
   }
 };
 let registering = false;
@@ -579,6 +586,12 @@ let registering = false;
    ============================================================ */
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ИСПРАВЛЕНО: обрезает длинные тексты для коротких превью в списках
+const trunc = (s, n = 60) => {
+  s = String(s ?? '');
+  return s.length > n ? s.slice(0, n).trimEnd() + '…' : s;
+};
 
 const fmtDate = ts => new Date(ts).toLocaleDateString('ru-RU',
   { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -1016,9 +1029,9 @@ function assignTab() {
                 <input type="checkbox" data-change="toggleTask" value="${t.id}"
                        ${S.ui.selTasks.has(t.id) ? 'checked' : ''}>
                 ${renderTaskThumb(t)}
-                <div>
-                  <div class="tt">${esc(t.title)}</div>
-                  <div class="muted small">${esc(t.subject)}${t.desc ? ' · ' + esc(t.desc) : ''}</div>
+                <div style="min-width:0; flex:1">
+                  <div class="tt ell">${esc(t.title)}</div>
+                  <div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 40)) : ''}</div>
                 </div>
               </label>`).join('')
           : '<p class="muted small">Каталог пуст — добавьте задания на вкладке «Задания».</p>'}
@@ -1069,9 +1082,13 @@ function submissionsTab() {
     </div>
     <div class="table-wrap">
       <table>
+        <colgroup>
+          <col style="width:13%"><col style="width:27%"><col style="width:10%">
+          <col style="width:10%"><col style="width:13%"><col style="width:11%"><col style="width:16%">
+        </colgroup>
         <thead><tr>
           <th>Ученик</th><th>Задание</th><th>Выдано</th>
-          <th>Срок</th><th>Статус</th><th>Ответ ученика</th><th>Действия</th>
+          <th>Срок</th><th>Статус</th><th>Ответ</th><th>Действия</th>
         </tr></thead>
         <tbody id="assignTbody">${assignmentRows()}</tbody>
       </table>
@@ -1115,19 +1132,16 @@ function filteredAssignments() {
   });
 }
 
+// ИСПРАВЛЕНО: имена и названия сокращаются с многоточием (.ell), таблица влезает без бокового скролла
 function assignmentRows() {
   const rows = filteredAssignments();
   if (!rows.length) return `<tr><td colspan="7" class="empty">Нет заданий по этим фильтрам</td></tr>`;
   return rows.map(a => `
     <tr class="${isAccepted(a) ? 'is-done' : ''}">
-      <td><b>${esc(a.studentName)}</b></td>
+      <td class="ell"><b>${esc(a.studentName)}</b></td>
       <td>
-        <div style="font-weight:600;display:flex;align-items:center;gap:6px">
-          ${esc(a.title)}
-          ${(a.attachmentUrl || a.imageUrl)
-            ? `<span class="muted" title="Есть вложение">${ICON_ATTACH}</span>` : ''}
-        </div>
-        <div class="muted small">${esc(a.subject)}</div>
+        <div class="ell" style="font-weight:600">${esc(a.title)}${(a.attachmentUrl || a.imageUrl) ? ` ${ICON_ATTACH}` : ''}</div>
+        <div class="muted small ell">${esc(a.subject)}</div>
         ${a.grade != null ? `<div class="small" style="margin-top:4px">Оценка: <b>${esc(a.grade)}</b></div>` : ''}
       </td>
       <td class="muted small">${fmtDate(a.createdAt)}</td>
@@ -1135,11 +1149,11 @@ function assignmentRows() {
       <td>${statusBadge(a)}</td>
       <td>
         ${a.fileUrl || a.answerText
-          ? `<span class="badge ok" style="font-size:11px">Есть ответ</span>`
+          ? `<span class="badge ok" style="font-size:11px">Есть</span>`
           : '<span class="muted small">—</span>'}
       </td>
-      <td class="ta-r">
-        ${hasBeenSubmitted(a) ? `<button class="btn sm ${isUnderReview(a) ? '' : 'ghost'}" data-action="reviewAssignment" data-id="${a.id}">${isUnderReview(a) ? 'Проверить' : 'Посмотреть'}</button>` : ''}
+      <td style="text-align:right">
+        ${hasBeenSubmitted(a) ? `<button class="btn sm ${isUnderReview(a) ? '' : 'ghost'}" data-action="reviewAssignment" data-id="${a.id}">${isUnderReview(a) ? 'Проверить' : 'Смотреть'}</button>` : ''}
         <button class="btn ghost sm" data-action="delAssignment" data-id="${a.id}">Удалить</button>
       </td>
     </tr>`).join('');
@@ -1165,16 +1179,16 @@ function reviewDialogHtml() {
         <div class="modal-head">
           <div>
             <h2 id="reviewTitle">${actionLabel}</h2>
-            <div class="muted small" style="margin-top:4px">${esc(a.studentName)} · ${esc(a.title)} · ${esc(a.subject)}</div>
+            <div class="muted small" style="margin-top:4px; overflow-wrap:anywhere">${esc(a.studentName)} · ${esc(a.title)} · ${esc(a.subject)}</div>
           </div>
           <button class="modal-close" data-action="closeReview" aria-label="Закрыть">×</button>
         </div>
-        
+
         ${a.answerText ? `
-          <div class="hint" style="margin-top:14px; background: #f0fdf4; border-color: #bbf7d0;">
+          <div class="hint" style="margin-top:14px; background:#f0fdf4; border-color:#bbf7d0;">
             <div style="font-weight:700; margin-bottom:6px; color:#166534">Текстовый ответ ученика:</div>
-            <!-- ИСПРАВЛЕНИЕ ЗДЕСЬ: добавлены word-break и overflow-wrap для корректного переноса длинного текста -->
-            <div style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; font-size:14px; color:#1b2438">${esc(a.answerText)}</div>
+            <!-- ИСПРАВЛЕНО: overflow-wrap:anywhere — длинное слово рвётся посимвольно, поле растёт ВНИЗ -->
+            <div style="white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; font-size:14px; color:#1b2438; max-width:100%">${esc(a.answerText)}</div>
           </div>
         ` : ''}
 
@@ -1235,8 +1249,8 @@ function membersTab() {
             const list = S.assignments.filter(a => a.studentId === m.id);
             return `
               <div class="list-row">
-                <div style="flex:1">
-                  <b>${esc(m.name)}</b>
+                <div style="flex:1; min-width:0">
+                  <b class="ell" style="display:inline-block; max-width:100%">${esc(m.name)}</b>
                   ${m.email ? `<span class="muted small"> · ${esc(m.email)}</span>` : ''}
                   <span class="muted small"> · заданий: ${list.length}</span>
                 </div>
@@ -1281,6 +1295,7 @@ function catalogTab() {
 
   <div class="card">
     <h2>Каталог (${S.tasks.length})</h2>
+    <p class="muted small">Нажмите «Открыть», чтобы посмотреть задание целиком.</p>
     <div style="margin-top:14px">
       ${S.tasks.length
         ? S.tasks.map(t => {
@@ -1289,19 +1304,53 @@ function catalogTab() {
               <div class="list-row">
                 ${renderTaskThumb(t)}
                 <div style="flex:1;min-width:200px">
-                  <div style="font-weight:600">${esc(t.title)}</div>
-                  <div class="muted small">${esc(t.subject)}${t.desc ? ' · ' + esc(t.desc) : ''}</div>
+                  <div class="ell" style="font-weight:600">${esc(t.title)}</div>
+                  <div class="muted small ell">${esc(t.subject)}${t.desc ? ' · ' + esc(trunc(t.desc, 60)) : ''}</div>
                   ${att ? `<div class="muted small" style="margin-top:4px">
                     <a href="${esc(att.url)}" target="_blank" rel="noopener"
                        style="color:var(--primary);text-decoration:none">${esc(att.name)}</a>
                   </div>` : ''}
                 </div>
-                <button class="btn ghost sm" data-action="delTask" data-id="${t.id}">Удалить</button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap">
+                  <button class="btn ghost sm" data-action="viewTask" data-id="${t.id}">${ICON_EYE} Открыть</button>
+                  <button class="btn ghost sm" data-action="delTask" data-id="${t.id}">Удалить</button>
+                </div>
               </div>`;
           }).join('')
         : '<p class="muted small">Каталог пуст.</p>'}
     </div>
-  </div>`;
+  </div>
+  ${taskViewDialogHtml()}`;
+}
+
+// ИСПРАВЛЕНО: модалка полного просмотра задания из каталога
+function taskViewDialogHtml() {
+  if (S.profile?.role !== 'teacher' || !S.ui.viewTaskId) return '';
+  const t = S.tasks.find(x => x.id === S.ui.viewTaskId);
+  if (!t) return '';
+  const att = getTaskAttachment(t);
+  return `
+    <div class="modal-backdrop">
+      <section class="modal-card" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <div>
+            <h2 style="overflow-wrap:anywhere">${esc(t.title)}</h2>
+            <div class="muted small" style="margin-top:4px; overflow-wrap:anywhere">${esc(t.subject || 'Без предмета')}</div>
+          </div>
+          <button class="modal-close" data-action="closeTaskView" aria-label="Закрыть">×</button>
+        </div>
+        ${t.desc
+          ? `<div class="hint" style="margin-top:14px; white-space:pre-wrap; overflow-wrap:anywhere">${esc(t.desc)}</div>`
+          : '<p class="muted small" style="margin-top:14px">Описание не указано.</p>'}
+        ${att ? (att.isImage
+          ? `<a href="${esc(att.url)}" target="_blank" rel="noopener"><img src="${esc(att.url)}" class="task-img" alt="${esc(att.name)}"></a>`
+          : `<div style="margin-top:12px"><a class="attach" href="${esc(att.url)}" target="_blank" rel="noopener">${ICON_ATTACH}<span class="attach-name">${esc(att.name)}</span></a></div>`)
+          : ''}
+        <div class="modal-actions">
+          <button class="btn ghost" data-action="closeTaskView">Закрыть</button>
+        </div>
+      </section>
+    </div>`;
 }
 
 /* --- Материалы урока --- */
@@ -1346,8 +1395,8 @@ function lessonMaterialsListHtml() {
   if (!S.lessonMaterials.length) return '<p class="muted small" style="margin-top:14px">Пока нет заготовок. Создайте первую выше.</p>';
   return S.lessonMaterials.map(m => `
     <div class="lesson-material">
-      <div class="lesson-material-title">${esc(m.title || 'Без названия')}</div>
-      <div class="lesson-material-meta">${esc(m.subject || 'Без предмета')} · ${Array.isArray(m.items) ? m.items.length : 0} заданий${m.description ? ' · ' + esc(m.description) : ''}</div>
+      <div class="lesson-material-title" style="overflow-wrap:anywhere">${esc(m.title || 'Без названия')}</div>
+      <div class="lesson-material-meta">${esc(m.subject || 'Без предмета')} · ${Array.isArray(m.items) ? m.items.length : 0} заданий${m.description ? ' · ' + esc(trunc(m.description, 60)) : ''}</div>
       ${m.attachmentUrl ? `<div class="lesson-file-preview"><a class="attach" href="${esc(m.attachmentUrl)}" target="_blank" rel="noopener">${ICON_ATTACH}<span class="attach-name">${esc(m.attachmentName || 'Файл к уроку')}</span></a></div>` : ''}
       <div class="lesson-actions">
         <button class="btn ok sm" data-action="startLesson" data-id="${m.id}">Начать урок</button>
@@ -1382,7 +1431,7 @@ function teacherLessonGradesHtml(lesson) {
       ${S.members.map(m => {
         const g = S.lessonGrades.find(x => x.runId === lesson.runId && x.studentId === m.id);
         return `<div class="lesson-grade-row">
-          <div><b>${esc(m.name || 'Ученик')}</b><div class="muted small">${g?.updatedAt ? 'Обновлено: ' + fmtDate(g.updatedAt) : 'Оценки ещё не выставлены'}</div></div>
+          <div style="min-width:0"><b class="ell" style="display:inline-block; max-width:100%">${esc(m.name || 'Ученик')}</b><div class="muted small">${g?.updatedAt ? 'Обновлено: ' + fmtDate(g.updatedAt) : 'Оценки ещё не выставлены'}</div></div>
           <div class="lesson-grade-fields">
             ${lessonGradeSelect('За работу на уроке', m.id, 'lesson', g?.lessonGrade)}
             ${lessonGradeSelect('За поведение', m.id, 'behavior', g?.behaviorGrade)}
@@ -1451,7 +1500,7 @@ function studentLessonGradesHtml() {
         ${g.lessonGrade != null ? `<span class="badge ok">За урок: ${esc(g.lessonGrade)}</span>` : ''}
         ${g.behaviorGrade != null ? `<span class="badge ${Number(g.behaviorGrade) >= 4 ? 'ok' : Number(g.behaviorGrade) <= 2 ? 'danger' : 'warn'}">Поведение: ${esc(g.behaviorGrade)}</span>` : ''}
       </div>
-      ${g.comment ? `<p class="muted small" style="white-space:pre-wrap;margin:9px 0 0">${esc(g.comment)}</p>` : ''}
+      ${g.comment ? `<p class="muted small" style="white-space:pre-wrap; overflow-wrap:anywhere; margin:9px 0 0">${esc(g.comment)}</p>` : ''}
     </div>`).join('')}
   </div>`;
 }
@@ -1568,12 +1617,12 @@ function studentAssignmentsHtml() {
     const canEditSubmission = !accepted && !underReview;
     const hasReviewNotes = a.grade != null || a.teacherFeedback || a.errors;
     const currentText = a.answerText || '';
-    
+
     return `
     <div class="acard ${cls}">
       <div style="flex:1;min-width:220px">
         <div class="title">${esc(a.title)}</div>
-        <div class="muted small">${esc(a.subject)}${a.desc ? ' · ' + esc(a.desc) : ''}</div>
+        <div class="muted small">${esc(a.subject)}${a.desc ? ' · ' + esc(trunc(a.desc, 100)) : ''}</div>
         <div class="meta">
           ${statusBadge(a)}
           ${a.deadline ? `<span class="muted small">Срок: ${fmtDateStr(a.deadline)}</span>` : ''}
@@ -1600,7 +1649,7 @@ function studentAssignmentsHtml() {
           </div>` : ''}
 
         ${underReview ? `<p class="muted small" style="margin-top:12px">Работа отправлена учителю. После проверки здесь появятся оценка и комментарии.</p>` : ''}
-        
+
         ${canEditSubmission ? `
           <div style="margin-top:16px; width:100%">
             <label class="lbl">Текстовый ответ (можно вместо файла или вместе с ним)</label>
@@ -1628,11 +1677,12 @@ function studentAssignmentsHtml() {
    ACTIONS
    ============================================================ */
 document.addEventListener('click', async e => {
+  // Клик по фону модалки закрывает её.
   if (e.target.classList.contains('modal-backdrop')) {
-    if (S.ui.reviewAssignmentId) {
-      S.ui.reviewAssignmentId = null;
-      render();
-    }
+    let changed = false;
+    if (S.ui.reviewAssignmentId) { S.ui.reviewAssignmentId = null; changed = true; }
+    if (S.ui.viewTaskId) { S.ui.viewTaskId = null; changed = true; }
+    if (changed) render();
     return;
   }
 
@@ -1705,6 +1755,9 @@ document.addEventListener('click', async e => {
       }
 
       case 'addTask': await handleAddTask(); break;
+
+      case 'viewTask': S.ui.viewTaskId = el.dataset.id; render(); break;
+      case 'closeTaskView': S.ui.viewTaskId = null; render(); break;
 
       case 'saveLessonMaterial': await saveLessonMaterial(); break;
       case 'cancelEditLesson': S.ui.editLessonId = null; render(); break;
@@ -1824,6 +1877,7 @@ document.addEventListener('change', async e => {
   }
 });
 
+/* Подсветка кнопки «Прикрепить файл» в каталоге */
 document.addEventListener('change', e => {
   if (e.target.id === 'newTaskFile') {
     const label = document.getElementById('newTaskFileLabel');
@@ -1847,10 +1901,12 @@ document.addEventListener('input', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && S.ui.reviewAssignmentId) {
-    S.ui.reviewAssignmentId = null;
-    render();
-    return;
+  // Escape закрывает любую открытую модалку.
+  if (e.key === 'Escape') {
+    let changed = false;
+    if (S.ui.reviewAssignmentId) { S.ui.reviewAssignmentId = null; changed = true; }
+    if (S.ui.viewTaskId) { S.ui.viewTaskId = null; changed = true; }
+    if (changed) { render(); return; }
   }
   if (e.key !== 'Enter') return;
   if (e.target.id === 'authPass' || e.target.id === 'authEmail') {
@@ -2257,7 +2313,7 @@ async function uploadHomeworkFile(assignmentId, inputEl) {
 async function saveDraft(id) {
   const assign = S.assignments.find(a => a.id === id);
   if (!assign || assign.studentId !== S.user.uid) return;
-  
+
   const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
   const answerText = textArea ? textArea.value.trim() : '';
 
@@ -2270,7 +2326,7 @@ async function saveDraft(id) {
 async function submitAssignment(id) {
   const assign = S.assignments.find(a => a.id === id);
   if (!assign || assign.studentId !== S.user.uid) throw new Error('Задание не найдено');
-  
+
   const textArea = document.querySelector(`textarea[data-answer-text="${id}"]`);
   const answerText = textArea ? textArea.value.trim() : '';
 
@@ -2296,7 +2352,7 @@ async function saveReview(id, decision) {
   if (!assign || assign.classId !== S.classDoc.id || assign.teacherId !== S.user.uid) {
     throw new Error('Работа не найдена в вашем классе');
   }
-  
+
   if (!hasBeenSubmitted(assign) || (!assign.fileUrl && !assign.answerText && !isAccepted(assign))) {
     throw new Error('У ученика нет отправленной работы для проверки (нет ни файла, ни текста)');
   }
